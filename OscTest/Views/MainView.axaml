@@ -1,0 +1,63 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+			 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+			 xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+			 xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+			 xmlns:vm="clr-namespace:OscVisualizer.ViewModels"
+			 mc:Ignorable="d" d:DesignWidth="640" d:DesignHeight="480"
+			 x:Class="OscVisualizer.Views.MainView"
+			 x:DataType="vm:MainViewModel">
+  <Design.DataContext>
+    <!-- This only sets the DataContext for the previewer in an IDE,
+		to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
+    <vm:MainViewModel />
+  </Design.DataContext>
+
+  <StackPanel Margin="10" Spacing="10">
+    <Border BorderBrush="Gray" BorderThickness="1" Margin="5">
+      <TextBlock Text="Audio Visualization with OSC" FontSize="16" FontWeight="Bold" Margin="5"/>
+    </Border>
+    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+      <TextBlock Grid.Column="0" VerticalAlignment="Center">OSC Device:</TextBlock>
+      <!-- 再生デバイス一覧 -->
+      <ComboBox Grid.Column="1"
+                ItemsSource="{Binding PlaybackDevices}"
+                SelectedItem="{Binding SelectedDevice}"
+                HorizontalAlignment="Stretch"/>
+
+      <!-- ボタン -->
+      <Button Grid.Column="2" Content="Update"
+              Command="{Binding UpdateOutputDeviceList}" />
+    </Grid>
+
+    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+      <TextBlock Grid.Column="0" VerticalAlignment="Center">OSC Speed:</TextBlock>
+      <Slider Grid.Column="1"
+              Minimum="0.01" Maximum="5"
+              TickFrequency="0.01"
+              SmallChange="0.01"
+              Value="{Binding SpeedScale, Mode=TwoWay}"
+              IsSnapToTickEnabled="True" />
+      <TextBlock Grid.Column="2"
+                 Text="{Binding SpeedScale, StringFormat='F2'}"
+                 VerticalAlignment="Center"/>
+    </Grid>
+
+    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+      <TextBlock Grid.Column="0" VerticalAlignment="Center">Visualizer Type:</TextBlock>
+      <ComboBox  Grid.Column="1"
+                 ItemsSource="{Binding VisualizerTypes}"
+                SelectedItem="{Binding SelectedVisualizer}"
+                DisplayMemberBinding="{Binding VisualizerName}"
+                 HorizontalAlignment="Stretch"/>
+    </Grid>
+
+    <Grid ColumnDefinitions="Auto,Auto" HorizontalAlignment="Center">
+      <Button Grid.Column="0"
+        Content="Play"
+              Command="{Binding StartVisualyzer}"/>
+      <Button Grid.Column="1"
+        Content="Stop"
+              Command="{Binding Stop}"/>
+    </Grid>
+  </StackPanel>
+</UserControl>
