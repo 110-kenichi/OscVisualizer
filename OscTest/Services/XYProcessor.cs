@@ -36,6 +36,10 @@ namespace OscVisualizer.Services
             set => _speedScale = value;
         }
 
+        public bool InvertX { get; set; } = false;
+
+        public bool InvertY { get; set; } = false;
+
         public void SetMinSamplesPerSegment(int v) => _minSamplesPerSegment = Math.Max(1, v);
 
         private bool _skipNextProcess = false;
@@ -98,7 +102,18 @@ namespace OscVisualizer.Services
             for (int i = 0; i < N; i += 2)
             {
                 var p0 = pts[i];
+                if (InvertX)
+                    p0 = new Point(-p0.X, p0.Y);
+                if (InvertY)
+                    p0 = new Point(p0.X, -p0.Y);
+                pts[i] = p0;
+
                 var p1 = pts[(i + 1) % N];
+                if (InvertX)
+                    p1 = new Point(-p1.X, p1.Y);
+                if (InvertY)
+                    p1 = new Point(p1.X, -p1.Y);
+                pts[(i + 1) % N] = p1;
 
                 var clipped = ClipSegment(p0, p1);
                 if (clipped != null)
@@ -296,8 +311,8 @@ namespace OscVisualizer.Services
                         _skipNextProcess = false;
                     _index = (_index + 2) % N;
 
-                    pcm[i * 2 + 0] = 0f;
-                    pcm[i * 2 + 1] = 0f;
+                    pcm[i * 2 + 0] = (float)(Random.Shared.NextDouble() * 2f) - 1f;
+                    pcm[i * 2 + 1] = (float)(Random.Shared.NextDouble() * 2f) - 1f;
                     continue;
                 }
 
@@ -308,11 +323,15 @@ namespace OscVisualizer.Services
 
                 if (len <= 1e-9f)
                 {
-                    _subPos = 0;
-                    _index = (_index + 2) % N;
-                    pcm[i * 2 + 0] = 0f;
-                    pcm[i * 2 + 1] = 0f;
-                    continue;
+                    //_subPos = 0;
+                    //if (_index + 2 >= N)
+                    //    _skipNextProcess = false;
+                    //_index = (_index + 2) % N;
+
+                    //pcm[i * 2 + 0] = (float)a.X;
+                    //pcm[i * 2 + 1] = (float)a.Y;
+                    //continue;
+                    len = 0.05;
                 }
 
                 int samplesPerSegment = Math.Max(
@@ -330,7 +349,7 @@ namespace OscVisualizer.Services
 
                 _subPos++;
 
-                if (_subPos >= samplesPerSegment + _blankSamples)
+                if (_subPos > samplesPerSegment + _blankSamples)
                 {
                     _subPos = 0;
                     if (_index + 2 >= N)

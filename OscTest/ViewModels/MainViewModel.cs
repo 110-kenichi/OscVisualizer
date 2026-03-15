@@ -75,6 +75,18 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         }
     }
 
+    /// <summary>
+    /// 
+    /// </summary>
+    [Reactive]
+    public partial bool InvertX { get; set; }
+
+    /// <summary>
+    /// 
+    /// </summary>
+    [Reactive]
+    public partial bool InvertY { get; set; }
+
     public List<IAudioVisualizer> VisualizerTypes { get; } =
     [
         new SpectrumAnalyzer(),
@@ -84,6 +96,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         new WavePolarCircle(),
         new WaveFlame(),
         new WaveTwistedWarp(),
+        new RetroCarStereo(),
     ];
 
     public IAudioVisualizer? SelectedVisualizer { get; set; }
@@ -118,6 +131,17 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             }
 
             _xyProcessor?.Update();
+        }).DisposeWith(_disposables);
+
+        this.WhenAnyValue(x => x.InvertX).Subscribe(v =>
+        {
+            if (_xyProcessor != null)
+                _xyProcessor.InvertX = v;
+        }).DisposeWith(_disposables);
+        this.WhenAnyValue(x => x.InvertY).Subscribe(v =>
+        {
+            if (_xyProcessor != null)
+                _xyProcessor.InvertY = v;
         }).DisposeWith(_disposables);
     }
 
@@ -172,6 +196,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
             _xyProcessor = new XYProcessor(_alSource, sampleRate, sampleRate / 60);
             _xyProcessor.SpeedScale = _speedScale;
+            _xyProcessor.InvertX = InvertX;
+            _xyProcessor.InvertY = InvertY;
 
             // 初期バッファを埋める
             foreach (var b in _sampleBufferIds)
@@ -259,7 +285,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     private void SaveSettings()
     {
-        var json = JsonSerializer.Serialize(new { SelectedDevice, SpeedScale, SelectedVisualizer!.VisualizerName });
+        var json = JsonSerializer.Serialize(new { SelectedDevice, SpeedScale, SelectedVisualizer!.VisualizerName, InvertX, InvertY });
 
         string settingsPath = GetSettingsPath();
 
@@ -297,6 +323,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                 SelectedDevice = data.SelectedDevice;
             SpeedScale = data.SpeedScale;
             SelectedVisualizer = VisualizerTypes.FirstOrDefault(v => v.VisualizerName == data.VisualizerName) ?? VisualizerTypes[0];
+            InvertX = data.InvertX;
+            InvertY = data.InvertY;
         }
     }
 
@@ -305,6 +333,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         public string? SelectedDevice { get; set; }
         public double SpeedScale { get; set; }
         public string? VisualizerName { get; set; }
+        public bool InvertX { get; set; }
+        public bool InvertY { get; set; }
     }
 
 }
