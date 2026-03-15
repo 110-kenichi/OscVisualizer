@@ -1,12 +1,14 @@
 ﻿using Avalonia;
+using MathNet.Numerics;
+using MathNet.Numerics.IntegralTransforms;
 using NAudio.CoreAudioApi;
 using NAudio.Dsp;
 using NAudio.Wave;
 using OpenTK.Audio.OpenAL;
 using OpenTK.Compute.OpenCL;
+using OscVisualizer.Services;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
-using OscVisualizer.Services;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -18,11 +20,12 @@ using System.Reactive;
 using System.Reactive.Disposables;
 using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq; // 追加: IObservable<T>.Subscribe の Action オーバーロードを解決するため
+using System.Runtime.InteropServices;
+using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using MathNet.Numerics.IntegralTransforms;
-using MathNet.Numerics;
+using System.Xml.Linq;
 
 namespace OscVisualizer.ViewModels;
 
@@ -163,13 +166,77 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         }
     }
 
+
+
+    // UTF-8ポインタをC#のstringに変換する補助メソッド
+    public static string PointerToUtf8String(IntPtr ptr)
+    {
+        if (ptr == IntPtr.Zero) return string.Empty;
+
+        // 終端のヌル文字を探して長さを取得
+        int length = 0;
+        while (Marshal.ReadByte(ptr, length) != 0)
+        {
+            length++;
+        }
+
+        // バイト配列にコピー
+        byte[] buffer = new byte[length];
+        Marshal.Copy(ptr, buffer, 0, length);
+
+        // UTF-8としてデコード
+        return Encoding.UTF8.GetString(buffer);
+    }
+
+
+    /// <summary>
+    /// Used to convert a OpenAL string list to a C# List.
+    /// </summary>
+    /// <param name="alList">A pointer to the AL list. Usually returned from GetStringList like AL functions.</param>
+    /// <returns>The string list.</returns>
+    internal static unsafe List<string> ALStringListToList(byte* alList)
+    {
+        if (alList == (byte*)0)
+        {
+            return new List<string>();
+        }
+
+        var strings = new List<string>();
+
+        byte* currentPos = alList;
+        while (true)
+        {
+            var currentString = PointerToUtf8String(new IntPtr(currentPos));
+            if (string.IsNullOrEmpty(currentString))
+            {
+                break;
+            }
+
+            strings.Add(currentString);
+            currentPos += currentString.Length + 1;
+        }
+
+        return strings;
+    }
+
     public static string? FindOpenALDeviceName(string waveOutName)
     {
         // OpenAL Soft のデバイス一覧を取得
-        var devices = ALC.GetString(new ALDevice(IntPtr.Zero), AlcGetStringList.AllDevicesSpecifier);
-        // WaveOut のデバイス名を含む OpenAL デバイス名を探す
-        return devices.FirstOrDefault(d => d.Contains(waveOutName, StringComparison.OrdinalIgnoreCase));
+        unsafe
+        {
+            byte* result = ALC.GetStringPtr(new ALDevice(IntPtr.Zero), AlcGetString.AllDevicesSpecifier);
+            // C#のデフォルトのマーシャリングを使わず、手動でUTF-8として読み込む
+            var devices = ALStringListToList(result);
+            // WaveOut のデバイス名を含む OpenAL デバイス名を探す
+            return devices.FirstOrDefault(d => d.Contains(waveOutName, StringComparison.OrdinalIgnoreCase));
+        }
     }
+
+    /// <summary>This function opens a device by name.</summary>
+    /// <param name="devicename">A null-terminated string describing a device.</param>
+    /// <returns>Returns a pointer to the opened device. The return value will be NULL if there is an error.</returns>
+    [DllImport("OpenAL32.dll", EntryPoint = "alcOpenDevice", ExactSpelling = true, CallingConvention = CallingConvention.Cdecl)]
+    public static extern ALDevice OpenDevice([MarshalAs(UnmanagedType.LPUTF8Str)] string devicename);
 
     [ReactiveCommand]
     public void Play()
@@ -183,7 +250,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         {
             var dn = FindOpenALDeviceName(SelectedDevice);
 
-            _alDevice = ALC.OpenDevice(dn);
+            //_alDevice = ALC.OpenDevice(dn);
+            _alDevice = OpenDevice(dn!);
+
             ALContextAttributes a = new ALContextAttributes();
             _alContext = ALC.CreateContext(_alDevice, a);
             ALC.MakeContextCurrent(_alContext);
