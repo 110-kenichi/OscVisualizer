@@ -1,4 +1,4 @@
-﻿using Avalonia;
+﻿using OscVisualizer.Models;
 using MathNet.Numerics;
 using MathNet.Numerics.IntegralTransforms;
 using NAudio.CoreAudioApi;
@@ -31,18 +31,19 @@ namespace OscVisualizer.Services
             get => "Spectrum Analyzer";
         }
 
-        public List<Point> ProcessAudio(WasapiCapture capture, WaveInEventArgs e)
+        public List<XYPoint> ProcessAudio(WasapiCapture capture, WaveInEventArgs e)
         {
+            int sampleRate = capture.WaveFormat.SampleRate;
             float[] wav = IAudioVisualizer.ConvertToWav1ch(capture, e);
 
             //ハイパスフィルタ
             for (int i = 0; i < wav.Length; i++)
                 wav[i] = HighPass(wav[i]);
 
-            return ProcessAudio(wav);
+            return ProcessAudio(wav, sampleRate);
         }
 
-        private List<Point> ProcessAudio(float[] pcm)
+        private List<XYPoint> ProcessAudio(float[] pcm, int sampleRate)
         {
             // FFT 用に複素数配列へ
             Complex32[] fft = new Complex32[pcm.Length];
@@ -58,29 +59,82 @@ namespace OscVisualizer.Services
                 spectrum[i] = fft[i].Magnitude;
 
             // XYProcessor 用に変換
-            return SendSpectrumToXY(spectrum);
+            return SendSpectrumToXY(spectrum, sampleRate);
         }
 
-        private List<Point> SendSpectrumToXY(float[] spectrum)
+        private List<XYPoint> SendSpectrumToXY(float[] spectrum, int sampleRate)
         {
-            int n = spectrum.Length;
+            int fftSize = spectrum.Length * 2; // 元の FFT サイズ
+            int barCount = 200;                // XY に描くバー数（自由に調整）
 
-            // 最大値で正規化
-            float max = spectrum.Max();
+            // 周波数レンジ
+            float fMin = 100f;
+            float fMax = sampleRate / 2f;
+
+            // 出力バー
+            float[] bars = new float[barCount];
+
+            for (int b = 0; b < barCount; b++)
+            {
+                // ★ ログスケールで周波数を割り当て
+                float t0 = (float)b / barCount;
+                float t1 = (float)(b + 1) / barCount;
+
+                float f0 = fMin * MathF.Pow(fMax / fMin, t0);
+                float f1 = fMin * MathF.Pow(fMax / fMin, t1);
+
+                // FFT ビン範囲へ変換
+                int i0 = (int)(f0 / fMax * (spectrum.Length - 1));
+                int i1 = (int)(f1 / fMax * (spectrum.Length - 1));
+                if (i1 <= i0) i1 = i0 + 1;
+                if (i1 >= spectrum.Length) i1 = spectrum.Length - 1;
+
+                // ★ このバーの平均振幅
+                float sum = 0f;
+                int count = 0;
+                for (int i = i0; i <= i1; i++)
+                {
+                    sum += spectrum[i];
+                    count++;
+                }
+
+                float avg = sum / count;
+
+                // ★ 対数圧縮（高周波が見えるようになる）
+                bars[b] = MathF.Log10(1f + avg * 9f);
+            }
+
+            // 正規化
+            float max = bars.Max();
             if (max < 1e-6f) max = 1e-6f;
 
-            List<Point> points = new();
+            // XYProcessor 用に変換
+            List<XYPoint> points = new();
 
-            for (int i = 0; i < n; i++)
+            for (int b = 0; b < barCount-1; b++)
             {
-                float x = (float)i / (n - 1);   // 0〜1
-                float y = spectrum[i] / max;    // 0〜1
+                {
+                    float x = (float)b / (barCount - 1); // 0〜1
+                    float y = bars[b] / max;             // 0〜1
 
-                // XYProcessor は -1〜1 が必要
-                x = x * 2f - 1f;
-                y = y * 2f - 1f;
+                    // XYProcessor は -1〜1
+                    x = x * 2f - 1f;
+                    y = y * 2f - 1f;
 
-                points.Add(new Point(x, y));
+                    points.Add(new XYPoint(x, y, 0.5));
+                }
+                b++;
+                {
+                    float x = (float)b / (barCount - 1); // 0〜1
+                    float y = bars[b] / max;             // 0〜1
+
+                    // XYProcessor は -1〜1
+                    x = x * 2f - 1f;
+                    y = y * 2f - 1f;
+
+                    points.Add(new XYPoint(x, y, 0.5));
+                }
+                b--;
             }
 
             return points;

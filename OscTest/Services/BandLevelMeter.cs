@@ -4,6 +4,7 @@ using MathNet.Numerics;
 using MathNet.Numerics.IntegralTransforms;
 using NAudio.CoreAudioApi;
 using NAudio.Wave;
+using OscVisualizer.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -37,7 +38,7 @@ namespace OscVisualizer.Services
             get => "Band Level Meter";
         }
 
-        public List<Point> ProcessAudio(WasapiCapture capture, WaveInEventArgs e)
+        public List<XYPoint> ProcessAudio(WasapiCapture capture, WaveInEventArgs e)
         {
             var fmt = capture.WaveFormat;
             int channels = fmt.Channels;
@@ -126,13 +127,14 @@ namespace OscVisualizer.Services
             }
 
             //5. XYProcessor 用の座標列に変
-            List<Point> xy = new List<Point>();
+            List<XYPoint> xy = new List<XYPoint>();
             int thickness = 3; // 太さ（線の本数）
-            float barWidth = 2f / bars; // 1バーの幅（-1〜1）
+            float barWidth = 1.5f / bars; // 1バーの幅（-1〜1）
             for (int i = 0; i < bars; i++)
             {
                 float centerX = (float)i / bars * 2f - 1f;
-                float y = levels[i] * 2f - 1f;
+                float y = levels[i] * 1.5f - 1f;
+                float intensity = (y + 2f);
 
                 for (int t = 0; t < thickness; t++)
                 {
@@ -140,15 +142,18 @@ namespace OscVisualizer.Services
                     float x = centerX + offset;
 
                     // 下端 → 上端
-                    xy.Add(new Point(x, -1));
-                    xy.Add(new Point(x, y));
+                    xy.Add(new XYPoint(x, -1, intensity));
+                    xy.Add(new XYPoint(x, y, intensity));
                 }
                 // ピークホールドの高さ
-                float py = peak[i] * 2f - 1f;
-                // 横線（短い線分）
-                float wd = barWidth * 0.8f;
-                xy.Add(new Point(centerX, py));
-                xy.Add(new Point(centerX + wd, py));
+                float py = peak[i] * 1.5f - 1f;
+                if (py > -1f)
+                {
+                    // 横線（短い線分）
+                    float wd = barWidth * 0.8f;
+                    xy.Add(new XYPoint(centerX, py, intensity));
+                    xy.Add(new XYPoint(centerX + wd, py, intensity));
+                }
             }
 
             return xy;

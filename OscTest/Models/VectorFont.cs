@@ -1,13 +1,12 @@
-﻿using Avalonia;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 namespace OscVisualizer.Models;
 
 public static class VectorFont
 {
-    // 文字 → 線分リスト（各線分は (Point a, Point b)）
-    public static readonly Dictionary<char, List<(Point a, Point b)>> Glyphs =
-        new Dictionary<char, List<(Point a, Point b)>>()
+    // 文字 → 線分リスト（各線分は (XYPoint a, XYPoint b)）
+    public static readonly Dictionary<char, List<(XYPoint a, XYPoint b)>> Glyphs =
+        new Dictionary<char, List<(XYPoint a, XYPoint b)>>()
         {
             // ===== A–Z =====
             ['A'] = Segs(
@@ -147,11 +146,11 @@ public static class VectorFont
         };
 
     // ヘルパー：座標をまとめて線分リストに変換
-    private static List<(Point, Point)> Segs(params (double x1, double y1, double x2, double y2)[] segs)
+    private static List<(XYPoint, XYPoint)> Segs(params (double x1, double y1, double x2, double y2)[] segs)
     {
-        var list = new List<(Point, Point)>();
+        var list = new List<(XYPoint, XYPoint)>();
         foreach (var s in segs)
-            list.Add((new Point(s.x1, s.y1), new Point(s.x2, s.y2)));
+            list.Add((new XYPoint(s.x1, s.y1), new XYPoint(s.x2, s.y2)));
         return list;
     }
 }

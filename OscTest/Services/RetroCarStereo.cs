@@ -5,6 +5,7 @@ using MathNet.Numerics;
 using MathNet.Numerics.IntegralTransforms;
 using NAudio.CoreAudioApi;
 using NAudio.Wave;
+using OscVisualizer.Models;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -52,14 +53,14 @@ namespace OscVisualizer.Services
 
         // ==== 内部状態 ====
 
-        public List<Point> ProcessAudio(WasapiCapture capture, WaveInEventArgs e)
+        public List<XYPoint> ProcessAudio(WasapiCapture capture, WaveInEventArgs e)
         {
             float[] wav = IAudioVisualizer.ConvertToWav1ch(capture, e, 32);
 
             // audioFrame は float[]（キャプチャ済み 48kHz の一部フレーム）
             UpdateLevels(capture, e, wav);
 
-            List<Point> points = new List<Point>();
+            List<XYPoint> points = new List<XYPoint>();
 
             var barXY = BuildBarsXY();
             points.Add(barXY);
@@ -88,7 +89,9 @@ namespace OscVisualizer.Services
             points.Add(xy);
 
             var rectTAPE = renderer.CalcTextRect("TAPE", 1f);
-            xy = renderer.BuildText("TAPE", 1 - rectTAPE.Width - 0.1, -0.1 - rectAM.Height, 1f);
+            xy = renderer.BuildText("TAPE", 1 - rectTAPE.Width - 0.1, -0.1 - rectAM.Height, 1f).ToList();
+            foreach (var p in xy)
+                p.Intensity = 2;
             points.Add(xy);
 
             var rectCD = renderer.CalcTextRect("CD", 1f);
@@ -98,38 +101,27 @@ namespace OscVisualizer.Services
             return points;
         }
 
-        IEnumerable<Point> MakeRect(double cx, double cy, double w, double h)
+        IEnumerable<XYPoint> MakeRect(double cx, double cy, double w, double h)
         {
             double x0 = cx - w / 2;
             double x1 = cx + w / 2;
             double y0 = cy - h / 2;
             double y1 = cy + h / 2;
 
-            yield return new Point(x0, y0);
-            yield return new Point(x1, y0);
+            yield return new XYPoint(x0, y0);
+            yield return new XYPoint(x1, y0);
 
-            yield return new Point(x1, y0);
-            yield return new Point(x1, y1);
+            yield return new XYPoint(x1, y0);
+            yield return new XYPoint(x1, y1);
 
-            yield return new Point(x1, y1);
-            yield return new Point(x0, y1);
+            yield return new XYPoint(x1, y1);
+            yield return new XYPoint(x0, y1);
 
-            yield return new Point(x0, y1);
-            yield return new Point(x0, y0); // クローズ
+            yield return new XYPoint(x0, y1);
+            yield return new XYPoint(x0, y0); // クローズ
         }
 
-        Point RotateAround(Point p, Point center, double angle)
-        {
-            double dx = p.X - center.X;
-            double dy = p.Y - center.Y;
-            double c = Math.Cos(angle);
-            double s = Math.Sin(angle);
-            double x = center.X + dx * c - dy * s;
-            double y = center.Y + dx * s + dy * c;
-            return new Point(x, y);
-        }
-
-        IEnumerable<Point> MakeCircle(double cx, double cy, double r, int segments)
+        IEnumerable<XYPoint> MakeCircle(double cx, double cy, double r, int segments)
         {
             for (int i = 0; i <= segments; i++)
             {
@@ -137,18 +129,18 @@ namespace OscVisualizer.Services
                     double t = (double)i / segments * 2.0 * Math.PI;
                     double x = cx + r * Math.Cos(t);
                     double y = cy + r * Math.Sin(t);
-                    yield return new Point(x, y);
+                    yield return new XYPoint(x, y);
                 }
                 {
                     double t = (double)(i + 1) / segments * 2.0 * Math.PI;
                     double x = cx + r * Math.Cos(t);
                     double y = cy + r * Math.Sin(t);
-                    yield return new Point(x, y);
+                    yield return new XYPoint(x, y);
                 }
             }
         }
 
-        IEnumerable<Point> MakeSpokes(double cx, double cy, double rInner, double rOuter, int spokeCount)
+        IEnumerable<XYPoint> MakeSpokes(double cx, double cy, double rInner, double rOuter, int spokeCount)
         {
             for (int i = 0; i < spokeCount; i++)
             {
@@ -158,30 +150,23 @@ namespace OscVisualizer.Services
                 double x1 = cx + rOuter * Math.Cos(t);
                 double y1 = cy + rOuter * Math.Sin(t);
 
-                yield return new Point(x0, y0);
-                yield return new Point(x1, y1);
+                yield return new XYPoint(x0, y0);
+                yield return new XYPoint(x1, y1);
                 // ペンアップしたいならここで NaN ブレイクなど
             }
         }
 
-        IEnumerable<Point> RotateReel(IEnumerable<Point> src, Point center, double angle)
-            => src.Select(p => RotateAround(p, center, angle));
+        IEnumerable<XYPoint> RotateReel(IEnumerable<XYPoint> src, XYPoint center, double angle)
+            => src.Select(p => XYPoint.RotateAround(p, center, angle));
 
-        Point ScaleAround(Point p, Point center, double s)
-        {
-            double dx = p.X - center.X;
-            double dy = p.Y - center.Y;
-            return new Point(center.X + dx * s, center.Y + dy * s);
-        }
-
-        IEnumerable<Point> BuildCassetteFrame(double time)
+        IEnumerable<XYPoint> BuildCassetteFrame(double time)
         {
             double tapeAngle = time * 0.3;
             double reelAngleL = time * 4.0;
             double reelAngleR = time * 4.0;
 
-            var leftCenter = new Point(-0.4, -0.35);
-            var rightCenter = new Point(0.4, -0.35);
+            var leftCenter = new XYPoint(-0.4, -0.35);
+            var rightCenter = new XYPoint(0.4, -0.35);
             double reelRadius = 0.18;
 
             // 本体
@@ -202,7 +187,7 @@ namespace OscVisualizer.Services
             rightReelSpokes = RotateReel(rightReelSpokes, rightCenter, reelAngleR);
 
             // ここで全部マージ
-            var all = Enumerable.Empty<Point>()
+            var all = Enumerable.Empty<XYPoint>()
                 .Concat(body)
                 .Concat(window)
                 .Concat(label)
@@ -215,7 +200,7 @@ namespace OscVisualizer.Services
             //all = RotateAll(all, tapeAngle);
 
             double scale = 0.6; // 60% に縮小
-            all = all.Select(p => ScaleAround(p, new Point(0, -0.35), scale));
+            all = all.Select(p => XYPoint.ScaleAround(p, new XYPoint(0, -0.35), scale));
 
             return all;
         }
@@ -307,15 +292,7 @@ namespace OscVisualizer.Services
         }
 
         // ==== パース変換 ====
-        private Point ApplyPerspective2(float x, float y, float z)
-        {
-            float p = 1f / (1f + PerspectiveK * z);
-            float xp = 0.5f + (x - 0.5f) * p;
-            float yp = y * p;
-            //return new Point(xp, yp);
-            return new Point(x, y);
-        }
-        private Point ApplyPerspective(float x, float y, float z)
+        private XYPoint ApplyPerspective(float x, float y, float z)
         {
             // 消失点（画面上のどこに収束するか）
             const float vx = 0f;   // 横方向の消失点（中央）
@@ -328,19 +305,23 @@ namespace OscVisualizer.Services
             float xp = vx + (x - vx) * p;
             float yp = vy + (y - vy) * p;
 
-            return new Point(xp, yp + 1.0f);
+            return new XYPoint(xp, yp + 1.0f);
         }
 
         // ==== 1 セグメント長方形を XY ポリラインに変換 ====
-        private void AddRect(List<Point> list, float xL, float xR, float y0, float y1, bool skipUnderLine = false)
+        private void AddRect(List<XYPoint> list, float xL, float xR, float y0, float y1, bool skipUnderLine = false, float intensity = 1.0f)
         {
             float z = y1 * DepthScale;
             float z2 = y0 * DepthScale;
 
             var LB = ApplyPerspective(xL, y0, z2);
+            LB.Intensity = intensity;
             var RB = ApplyPerspective(xR, y0, z2);
+            RB.Intensity = intensity;
             var RT = ApplyPerspective(xR, y1, z);
+            RT.Intensity = intensity;
             var LT = ApplyPerspective(xL, y1, z);
+            LT.Intensity = intensity;
             if (!skipUnderLine)
             {
                 list.Add(LB); list.Add(RB);
@@ -351,9 +332,9 @@ namespace OscVisualizer.Services
         }
 
         // ==== セグメントバー生成 ====
-        public List<Point> BuildBarsXY()
+        public List<XYPoint> BuildBarsXY()
         {
-            var points = new List<Point>();
+            var points = new List<XYPoint>();
             float barWidth = 2f / NumBars; // 1バーの幅（-1〜1）
             float segHeight = 1.25f / SegmentsPerBar;
 
@@ -373,7 +354,10 @@ namespace OscVisualizer.Services
                 {
                     float y0 = s * segHeight;
                     float y1 = y0 + segHeight;
-                    AddRect(points, xL, xR, y0 - 1f, y1 - 1f, s != 0);
+                    if (s > 10)
+                        AddRect(points, xL, xR, y0 - 1f, y1 - 1f, s != 0, intensity: 2);
+                    else
+                        AddRect(points, xL, xR, y0 - 1f, y1 - 1f, s != 0);
                 }
             }
 
@@ -381,9 +365,9 @@ namespace OscVisualizer.Services
         }
 
         // ==== ピークバー（1 セグメント分） ====
-        public List<Point> BuildPeakXY()
+        public List<XYPoint> BuildPeakXY()
         {
-            var points = new List<Point>();
+            var points = new List<XYPoint>();
             float barWidth = 2f / NumBars; // 1バーの幅（-1〜1）
             float segHeight = 1.25f / SegmentsPerBar;
 
@@ -400,7 +384,10 @@ namespace OscVisualizer.Services
                 int segIndex = (int)(peak * SegmentsPerBar);
                 float y0 = segIndex * segHeight;
                 float y1 = y0 + segHeight;
-                AddRect(points, xL, xR, y0 - 1f, y1 - 1f);
+                if(segIndex > 10)
+                    AddRect(points, xL, xR, y0 - 1f, y1 - 1f, intensity: 2);
+                else
+                    AddRect(points, xL, xR, y0 - 1f, y1 - 1f);
             }
 
             return points;

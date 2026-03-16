@@ -1,4 +1,4 @@
-﻿using Avalonia;
+﻿using OscVisualizer.Models;
 using NAudio.CoreAudioApi;
 using NAudio.Wave;
 using System;
@@ -10,6 +10,7 @@ using System.Runtime.Intrinsics.X86;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Numerics;
 
 namespace OscVisualizer.Services
 {
@@ -33,7 +34,7 @@ namespace OscVisualizer.Services
             //for (int c = 0; c < channels; c++)
             //    ch[c] = new float[frameCount];
 
-            if(cut > 0)
+            if (cut > 0)
                 frameCount = Math.Min(cut, frameCount);
 
             float[] wav = new float[frameCount];
@@ -82,6 +83,18 @@ namespace OscVisualizer.Services
             return wav;
         }
 
+        /// <summary>
+        /// Calculates the average of each group of eight consecutive elements in the specified array using AVX2 vector
+        /// instructions.
+        /// </summary>
+        /// <remarks>This method uses AVX2 instructions for efficient vectorized processing. To ensure
+        /// correct results, the input array length must be a multiple of eight. Using this method on platforms without
+        /// AVX support will result in an exception.</remarks>
+        /// <param name="src">The source array of single-precision floating-point values to be downsampled. The length of the array must
+        /// be a multiple of eight.</param>
+        /// <returns>An array of single-precision floating-point values containing the computed averages, with a length equal to
+        /// one-eighth of the source array.</returns>
+        /// <exception cref="PlatformNotSupportedException">Thrown if the AVX instruction set is not supported on the current platform.</exception>
         static float[] Downsample8xAverageAVX2(float[] src)
         {
             if (!Avx.IsSupported)
@@ -120,6 +133,51 @@ namespace OscVisualizer.Services
         }
 
         /// <summary>
+        /// Downsamples the input array by averaging each group of four consecutive elements, returning a new array with
+        /// one-fourth the number of elements.
+        /// </summary>
+        /// <remarks>This method uses SIMD (Single Instruction, Multiple Data) operations to improve
+        /// performance by processing multiple elements simultaneously. If the input array length is not a multiple of
+        /// eight, the remaining elements are processed individually.</remarks>
+        /// <param name="src">The input array of single-precision floating-point values to be downsampled. The length of the array must be
+        /// a multiple of four.</param>
+        /// <returns>A new array of single-precision floating-point values containing the averaged results. The length of the
+        /// returned array is one-fourth the length of the input array.</returns>
+        static float[] Downsample4xAverage(float[] src)
+        {
+            int outLen = src.Length / 4;
+            float[] dst = new float[outLen];
+
+            int i = 0;
+            int o = 0;
+
+            // SIMD で 8要素ずつ処理（= 2グループ分）
+            int simdCount = (outLen / 2) * 2;
+
+            for (; o < simdCount; o += 2, i += 8)
+            {
+                // 8要素ロード
+                var v = new Vector<float>(src, i);
+
+                // v = [a0 a1 a2 a3 a4 a5 a6 a7]
+                // 前半4つと後半4つを平均化
+                float avg0 = (v[0] + v[1] + v[2] + v[3]) * 0.25f;
+                float avg1 = (v[4] + v[5] + v[6] + v[7]) * 0.25f;
+
+                dst[o] = avg0;
+                dst[o + 1] = avg1;
+            }
+
+            // 端数（SIMD で処理できない分）
+            for (; o < outLen; o++, i += 4)
+            {
+                dst[o] = (src[i] + src[i + 1] + src[i + 2] + src[i + 3]) * 0.25f;
+            }
+
+            return dst;
+        }
+
+        /// <summary>
         /// Gets the name of the visualizer currently in use.
         /// </summary>
         /// <remarks>This property provides the name of the visualizer, which can be useful for identifying
@@ -141,6 +199,6 @@ namespace OscVisualizer.Services
         /// <param name="e">The event data containing the captured audio buffer and related information. Must not be null.</param>
         /// <returns>A list of Point objects that represent the processed audio waveform data. The list may be empty if no audio
         /// data is available.</returns>
-        List<Point> ProcessAudio(WasapiCapture sender, WaveInEventArgs e);
+        List<XYPoint> ProcessAudio(WasapiCapture sender, WaveInEventArgs e);
     }
 }

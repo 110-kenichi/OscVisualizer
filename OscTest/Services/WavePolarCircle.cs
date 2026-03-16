@@ -1,6 +1,7 @@
 ﻿using Avalonia;
 using NAudio.CoreAudioApi;
 using NAudio.Wave;
+using OscVisualizer.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -22,7 +23,7 @@ namespace OscVisualizer.Services
             get => "Wave Polar Circle";
         }
 
-        public List<Point> ProcessAudio(WasapiCapture capture, WaveInEventArgs ea)
+        public List<XYPoint> ProcessAudio(WasapiCapture capture, WaveInEventArgs ea)
         {
             float[] wav = IAudioVisualizer.ConvertToWav1ch(capture, ea);
 
@@ -34,7 +35,7 @@ namespace OscVisualizer.Services
                 UpdateEnvelope(wav[i]);
             }
 
-            List<Point> points = new List<Point>();
+            List<XYPoint> points = new List<XYPoint>();
             FillPolarWaveform(wav, points, baseR: 0.3f, amp: 1.0f, envelope: envelope);
             return points;
         }
@@ -51,7 +52,7 @@ namespace OscVisualizer.Services
                 envelope += (rect - envelope) * release;  // Release
         }
 
-        void FillPolarWaveform(float[] samples, List<Point> pts,
+        void FillPolarWaveform(float[] samples, List<XYPoint> pts,
                        float baseR = 0.6f, float amp = 0.6f,
                        float angleMod = 0.02f,
                        float envelope = 0.0f)
@@ -74,7 +75,7 @@ namespace OscVisualizer.Services
                     float x = r * MathF.Cos(theta);
                     float y = r * MathF.Sin(theta);
 
-                    pts.Add(new Point(x, y));
+                    pts.Add(new XYPoint(x, y));
                 }
                 if (i < N - 1)
                 {
@@ -90,7 +91,7 @@ namespace OscVisualizer.Services
                     float x = r * MathF.Cos(theta);
                     float y = r * MathF.Sin(theta);
 
-                    pts.Add(new Point(x, y));
+                    pts.Add(new XYPoint(x, y));
                 }
                 else
                 {
@@ -106,7 +107,7 @@ namespace OscVisualizer.Services
                     float x = r * MathF.Cos(theta);
                     float y = r * MathF.Sin(theta);
 
-                    pts.Add(new Point(x, y));
+                    pts.Add(new XYPoint(x, y));
                 }
             }
         }

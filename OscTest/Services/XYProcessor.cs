@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Avalonia;
+using OscVisualizer.Models;
 using OpenTK.Audio.OpenAL;
 
 namespace OscVisualizer.Services
@@ -15,9 +15,9 @@ namespace OscVisualizer.Services
         private readonly int _sampleRate;
 
         // JS版の状態
-        private List<Point> _points = new();
+        private List<XYPoint> _points = new();
         private int _index = 0;              // 現在の点インデックス（偶数: p0, 奇数: p1）
-        private int _subPos = 0;             // 線分内サンプル位置
+        private double _subPos = 0;             // 線分内サンプル位置
         private int _blankSamples = 0;       // 線分間ブランキングサンプル数
 
         // 距離ベース制御用
@@ -71,13 +71,13 @@ namespace OscVisualizer.Services
         /// <remarks>This method has no effect if the previous operation was marked to be skipped. After
         /// setting the points, the internal state is initialized for segment processing.</remarks>
         /// <param name="points">The list of points to set. If null, an empty list is used instead.</param>
-        public void SetPoints(List<Point> points)
+        public void SetPoints(List<XYPoint> points)
         {
             if (_skipNextProcess)
                 return;
 
             _skipNextProcess = true;
-            _points = points ?? new List<Point>();
+            _points = points ?? new List<XYPoint>();
             _index = 0;
             _subPos = 0;
             SetupSegments(_points);
@@ -91,7 +91,7 @@ namespace OscVisualizer.Services
         /// collection as pairs, treating the collection as circular by connecting the last point back to the first. If
         /// fewer than two points are present, no segments are created. If no valid segments are found, a minimal total
         /// length is assigned to prevent division by zero in subsequent calculations.</remarks>
-        private void SetupSegments(List<Point> pts)
+        private void SetupSegments(List<XYPoint> pts)
         {
             _segmentLengths.Clear();
             _totalLength = 0f;
@@ -103,16 +103,16 @@ namespace OscVisualizer.Services
             {
                 var p0 = pts[i];
                 if (InvertX)
-                    p0 = new Point(-p0.X, p0.Y);
+                    p0 = new XYPoint(-p0.X, p0.Y, p0.Intensity);
                 if (InvertY)
-                    p0 = new Point(p0.X, -p0.Y);
+                    p0 = new XYPoint(p0.X, -p0.Y, p0.Intensity);
                 pts[i] = p0;
 
                 var p1 = pts[(i + 1) % N];
                 if (InvertX)
-                    p1 = new Point(-p1.X, p1.Y);
+                    p1 = new XYPoint(-p1.X, p1.Y, p1.Intensity);
                 if (InvertY)
-                    p1 = new Point(p1.X, -p1.Y);
+                    p1 = new XYPoint(p1.X, -p1.Y, p1.Intensity);
                 pts[(i + 1) % N] = p1;
 
                 var clipped = ClipSegment(p0, p1);
@@ -151,7 +151,7 @@ namespace OscVisualizer.Services
         /// langword="true"/>) or the y-axis (<see langword="false"/>).</param>
         /// <returns>A <see cref="Point"/> representing the intersection point if the line segment crosses the specified
         /// boundary; otherwise, <see langword="null"/> if there is no intersection within the segment.</returns>
-        private Point? Intersect(Point p0, Point p1, double bound, bool isX)
+        private XYPoint? Intersect(XYPoint p0, XYPoint p1, double bound, bool isX)
         {
             double x0 = p0.X, y0 = p0.Y;
             double x1 = p1.X, y1 = p1.Y;
@@ -160,17 +160,27 @@ namespace OscVisualizer.Services
             {
                 double dx = x1 - x0;
                 if (dx == 0f) return null;
+
                 double t = (bound - x0) / dx;
                 if (t < 0f || t > 1f) return null;
-                return new Point(bound, y0 + (y1 - y0) * t);
+
+                double y = y0 + (y1 - y0) * t;
+                double b = p0.Intensity + (p1.Intensity - p0.Intensity) * t;
+
+                return new XYPoint(bound, y, b);
             }
             else
             {
                 double dy = y1 - y0;
                 if (dy == 0f) return null;
+
                 double t = (bound - y0) / dy;
                 if (t < 0f || t > 1f) return null;
-                return new Point(x0 + (x1 - x0) * t, bound);
+
+                double x = x0 + (x1 - x0) * t;
+                double b = p0.Intensity + (p1.Intensity - p0.Intensity) * t;
+
+                return new XYPoint(x, bound, b);
             }
         }
 
@@ -187,9 +197,9 @@ namespace OscVisualizer.Services
         /// <param name="p1">The ending point of the line segment to be clipped.</param>
         /// <returns>A tuple containing the endpoints of the clipped segment if the original segment intersects the unit square;
         /// otherwise, <see langword="null"/>.</returns>
-        private (Point a, Point b)? ClipSegment(Point p0, Point p1)
+        private (XYPoint a, XYPoint b)? ClipSegment(XYPoint p0, XYPoint p1)
         {
-            bool Inside(Point p) =>
+            bool Inside(XYPoint p) =>
                 p.X >= -1f && p.X <= 1f && p.Y >= -1f && p.Y <= 1f;
 
             bool p0Inside = Inside(p0);
@@ -203,13 +213,13 @@ namespace OscVisualizer.Services
                 ( 1, false), // y =  1
             };
 
-            var intersections = new List<Point>();
+            var intersections = new List<XYPoint>();
 
             foreach (var (bound, isX) in bounds)
             {
                 var p = Intersect(p0, p1, bound, isX);
-                if (p.HasValue)
-                    intersections.Add(p.Value);
+                if (p != null)
+                    intersections.Add(p);
             }
 
             // ケース1：両端が内側 → そのまま
@@ -285,7 +295,7 @@ namespace OscVisualizer.Services
         {
             float[] pcm = new float[_frameSamples * 2];
 
-            List<Point> pts = _points;
+            List<XYPoint> pts = _points;
 
             int N = pts.Count;
             if (N < 2 || _totalLength <= 0f)
@@ -295,7 +305,8 @@ namespace OscVisualizer.Services
                 return pcm;
             }
 
-            double scale = (_frameSamples / _totalLength) * _speedScale;
+            double scale = (_frameSamples / _totalLength) * _speedScale / 4;
+            _index = _index % N;
 
             for (int i = 0; i < _frameSamples; i++)
             {
@@ -319,6 +330,8 @@ namespace OscVisualizer.Services
                 var (a, b) = clipped.Value;
                 double dx = b.X - a.X;
                 double dy = b.Y - a.Y;
+                double db = b.Intensity - a.Intensity;
+
                 double len = Math.Sqrt(dx * dx + dy * dy);
 
                 if (len <= 1e-9f)
@@ -339,15 +352,24 @@ namespace OscVisualizer.Services
                     (int)Math.Floor(len * scale)
                 );
 
-                double t = (double)_subPos / (double)samplesPerSegment;
+                // t は 0〜1
+                double t = _subPos / samplesPerSegment;
 
+                // ★ Brightness を線形補間
+                double brightness = a.Intensity + db * t;
+
+                // ★ 速度スケール（Brightness が低いと速くする。高いと遅くする）
+                double speedFactor = Math.Max(0.0001, Math.Exp(-brightness));
+
+                // ★ 位置補間
                 double x = a.X + dx * t;
                 double y = a.Y + dy * t;
 
                 pcm[i * 2 + 0] = (float)x;
                 pcm[i * 2 + 1] = (float)y;
 
-                _subPos++;
+                // ★ subPos の進み方に Brightness を反映
+                _subPos += speedFactor;
 
                 if (_subPos > samplesPerSegment + _blankSamples)
                 {

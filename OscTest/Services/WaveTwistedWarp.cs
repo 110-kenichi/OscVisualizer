@@ -1,4 +1,4 @@
-﻿using Avalonia;
+﻿using OscVisualizer.Models;
 using NAudio.CoreAudioApi;
 using NAudio.Dsp;
 using NAudio.Wave;
@@ -25,7 +25,7 @@ namespace OscVisualizer.Services
             get => "Wave Twisted Warp";
         }
 
-        public List<Point> ProcessAudio(WasapiCapture capture, WaveInEventArgs ea)
+        public List<XYPoint> ProcessAudio(WasapiCapture capture, WaveInEventArgs ea)
         {
             float[] wav = IAudioVisualizer.ConvertToWav1ch(capture, ea);
 
@@ -39,9 +39,9 @@ namespace OscVisualizer.Services
 
             float time = (float)_sw.Elapsed.TotalSeconds;
 
-            float angle = 0.5f + time * 3f + envelope * 8f;
+            float angle = 0.5f + time * 3f;
 
-            List<Point> points = TwistedWarp(wav, time, angle);
+            List<XYPoint> points = TwistedWarp(wav, time, angle, envelope);
             return points;
         }
 
@@ -57,10 +57,27 @@ namespace OscVisualizer.Services
                 envelope += (rect - envelope) * release;  // Release
         }
 
-        public List<Point> TwistedWarp(
+        private float NoiseFBM(float x, float y, float octaves = 4)
+        {
+            float sum = 0f;
+            float amp = 1f;
+            float freq = 1f;
+
+            for (int i = 0; i < octaves; i++)
+            {
+                sum += Simplex.Noise2D(x * freq, y * freq) * amp;
+                freq *= 2f;
+                amp *= 0.5f;
+            }
+
+            return sum;
+        }
+
+        public List<XYPoint> TwistedWarp(
             float[] audio,
             float time,
-            float rotationAngle)
+            float rotationAngle,
+            float envelope)
         {
             int N = audio.Length;
 
@@ -68,7 +85,12 @@ namespace OscVisualizer.Services
             float cosA = MathF.Cos(rotationAngle);
             float sinA = MathF.Sin(rotationAngle);
 
-            List<Point> points = new();
+            List<XYPoint> points = new();
+
+            // TwistedWarp の中心を揺らす
+            //float wobbleX = NoiseFBM(time * 0.7f, 0f) * 0.1f;  // 横揺れ
+            //float wobbleY = NoiseFBM(0f, time * 0.9f) * 0.1f;  // 縦揺れ
+            float wobbleX = (float)Math.Sin(time) / 20;
 
             for (int i = 0; i < N; i++)
             {
@@ -89,16 +111,16 @@ namespace OscVisualizer.Services
                 float r = MathF.Sqrt(x * x + y * y);
                 float theta = MathF.Atan2(y, x) + r * 10f;
 
-                x = MathF.Cos(theta) * r;
-                y = MathF.Sin(theta) * r;
+                x = MathF.Cos(theta) * r / 1.5f;
+                y = MathF.Sin(theta) * r / 1.5f;
 
                 // -----------------------------
                 // 3. Noise Distortion（揺らぎ）
                 // -----------------------------
-                //float n = (float)noise.Noise(x * 2f, y * 2f, time * 0.2f);
+                float n = (float)NoiseFBM(x * 2f, y * 2f, time * 0.1f);
 
-                //x += n * 0.10f;
-                //y += n * 0.10f;
+                x += n * 0.01f;
+                y += n * 0.01f;
 
                 // -----------------------------
                 // 4. Rotation（XY 回転）
@@ -109,15 +131,19 @@ namespace OscVisualizer.Services
                 x = rx;
                 y = ry;
 
+                // 点を中心基準に移動
+                x = x - wobbleX;
+                y = y + envelope * 2;
+
                 // -----------------------------
                 // 5. Clamp（XYProcessor の範囲）
                 // -----------------------------
                 x = Math.Clamp(x, -1f, 1f);
                 y = Math.Clamp(y, -1f, 1f);
 
-                points.Add(new Point(x, y));
+                points.Add(new XYPoint(x, y));
                 if (i != 0 && i != N - 1)
-                    points.Add(new Point(x, y));
+                    points.Add(new XYPoint(x, y));
             }
 
             return points;

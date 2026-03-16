@@ -1,4 +1,4 @@
-﻿using Avalonia;
+﻿using OscVisualizer.Models;
 using NAudio.CoreAudioApi;
 using NAudio.Dsp;
 using NAudio.Wave;
@@ -25,7 +25,7 @@ namespace OscVisualizer.Services
             get => "Wave Flame";
         }
 
-        public List<Point> ProcessAudio(WasapiCapture capture, WaveInEventArgs ea)
+        public List<XYPoint> ProcessAudio(WasapiCapture capture, WaveInEventArgs ea)
         {
             float[] wav = IAudioVisualizer.ConvertToWav1ch(capture, ea);
 
@@ -33,10 +33,10 @@ namespace OscVisualizer.Services
 
             float time = (float)_sw.Elapsed.TotalSeconds;
 
-            List<Point> points = GenerateFlameWaveform(wav, time);
+            List<XYPoint> points = GenerateFlameWaveform(wav, time);
             return points;
         }
-        public List<Point> GenerateFlameWaveform(
+        public List<XYPoint> GenerateFlameWaveform(
             float[] waveform,
             float time,
             float flameIntensity = 0.15f,
@@ -45,7 +45,7 @@ namespace OscVisualizer.Services
             float stretchAmount = 0.5f)
         {
             int n = waveform.Length;
-            var points = new List<Point>();
+            var points = new List<XYPoint>();
 
             for (int i = 0; i < n; i++)
             {
@@ -71,7 +71,7 @@ namespace OscVisualizer.Services
                     float x = MathF.Cos(theta) * r;
                     float y = MathF.Sin(theta) * r * stretch;
 
-                    points.Add(new Point(x, y));
+                    points.Add(new XYPoint(x, y));
                 }
                 i++;
                 if (i >= n)
@@ -97,7 +97,7 @@ namespace OscVisualizer.Services
                     float x = MathF.Cos(theta) * r;
                     float y = MathF.Sin(theta) * r * stretch;
 
-                    points.Add(new Point(x, y));
+                    points.Add(new XYPoint(x, y));
                 }
                 i = j;
             }

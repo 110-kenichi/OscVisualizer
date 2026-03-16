@@ -1,4 +1,4 @@
-﻿using Avalonia;
+﻿using OscVisualizer.Models;
 using NAudio.CoreAudioApi;
 using NAudio.Wave;
 using System;
@@ -21,19 +21,19 @@ namespace OscVisualizer.Services
             get => "Wave Circle";
         }
 
-        public List<Point> ProcessAudio(WasapiCapture capture, WaveInEventArgs e)
+        public List<XYPoint> ProcessAudio(WasapiCapture capture, WaveInEventArgs e)
         {
             float[] wav = IAudioVisualizer.ConvertToWav1ch(capture, e);
 
             wav = IAudioVisualizer.Downsample8xAverageAVX2(wav);
 
-            List<Point> points = new List<Point>();
+            List<XYPoint> points = new List<XYPoint>();
             FillCircularWaveform(wav, points, 0.6f, 1f);
             return points;
         }
 
 
-        void FillCircularWaveform(float[] samples, List<Point> points,
+        void FillCircularWaveform(float[] samples, List<XYPoint> points,
                           float baseRadius = 0.6f, float ampScale = 0.6f)
         {
             int N = samples.Length;
@@ -48,7 +48,7 @@ namespace OscVisualizer.Services
                     float x = r * MathF.Cos(theta);
                     float y = r * MathF.Sin(theta);
 
-                    points.Add(new Point(x, y));
+                    points.Add(new XYPoint(x, y));
                 }
                 if (i < N - 1)
                 {
@@ -59,7 +59,7 @@ namespace OscVisualizer.Services
                     float x = r * MathF.Cos(theta);
                     float y = r * MathF.Sin(theta);
 
-                    points.Add(new Point(x, y));
+                    points.Add(new XYPoint(x, y));
                 }
                 else
                 {
@@ -70,7 +70,7 @@ namespace OscVisualizer.Services
                     float x = r * MathF.Cos(theta);
                     float y = r * MathF.Sin(theta);
 
-                    points.Add(new Point(x, y));
+                    points.Add(new XYPoint(x, y));
                 }
             }
         }
