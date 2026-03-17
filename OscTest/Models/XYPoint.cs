@@ -15,11 +15,13 @@ namespace OscVisualizer.Models
         /// range may result in undefined behavior.</remarks>
         /// <param name="x">The horizontal position of the point.</param>
         /// <param name="y">The vertical position of the point.</param>
+        /// <param name="z"></param>
         /// <param name="intensity">The brightness level of the point. The value muse be greater than 0. Default value is 1.0.</param>
-        public XYPoint(double x, double y, double intensity = 1.0)
+        public XYPoint(double x, double y, double intensity = 1.0, double z = 0.0)
         {
             X = x;
             Y = y;
+            Z = z;
             Intensity = intensity;
         }
 
@@ -34,20 +36,25 @@ namespace OscVisualizer.Models
         public double Y { get; set; }
 
         /// <summary>
+        /// Gets or sets the Z coordinate of a point in a two-dimensional space.
+        /// </summary>
+        public double Z { get; set; }
+
+        /// <summary>
         /// 
         /// </summary>
         public double Intensity { get; set; }
 
         public override string ToString()
         {
-            return $"({X}, {Y}, {Intensity} )";
+            return $"({X}, {Y}, {Z}, {Intensity} )";
         }
 
         public override bool Equals(object? obj)
         {
             if (obj is XYPoint point)
             {
-                return X == point.X && Y == point.Y && Intensity == point.Intensity; ;
+                return X == point.X && Y == point.Y && Z == point.Z && Intensity == point.Intensity; ;
             }
             return false;
         }

@@ -101,6 +101,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         new WaveTwistedWarp(),
         new RetroCarStereo(),
         new DiscoBall(),
+        new Synthwave(),
     ];
 
     public IAudioVisualizer? SelectedVisualizer { get; set; }

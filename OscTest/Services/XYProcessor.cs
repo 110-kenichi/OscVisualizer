@@ -249,8 +249,8 @@ namespace OscVisualizer.Services
                 {
                     intersections.Sort((a, b) =>
                     {
-                        double ta = (a.X - p0.X) * (a.X - p0.X) + (a.Y - p0.Y) * (a.Y - p0.Y);
-                        double tb = (b.X - p0.X) * (b.X - p0.X) + (b.Y - p0.Y) * (b.Y - p0.Y);
+                        double ta = (a.X - p1.X) * (a.X - p1.X) + (a.Y - p1.Y) * (a.Y - p1.Y);
+                        double tb = (b.X - p1.X) * (b.X - p1.X) + (b.Y - p1.Y) * (b.Y - p1.Y);
                         return ta.CompareTo(tb);
                     });
                     var i0 = intersections[0];
@@ -266,8 +266,8 @@ namespace OscVisualizer.Services
                 {
                     intersections.Sort((a, b) =>
                     {
-                        double ta = (a.X - p1.X) * (a.X - p1.X) + (a.Y - p1.Y) * (a.Y - p1.Y);
-                        double tb = (b.X - p1.X) * (b.X - p1.X) + (b.Y - p1.Y) * (b.Y - p1.Y);
+                        double ta = (a.X - p0.X) * (a.X - p0.X) + (a.Y - p0.Y) * (a.Y - p0.Y);
+                        double tb = (b.X - p0.X) * (b.X - p0.X) + (b.Y - p0.Y) * (b.Y - p0.Y);
                         return ta.CompareTo(tb);
                     });
                     var i0 = intersections[0];
