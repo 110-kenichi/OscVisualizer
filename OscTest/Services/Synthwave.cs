@@ -64,7 +64,7 @@ namespace OscVisualizer.Services
             float t = (float)_sw.Elapsed.TotalSeconds;
 
 
-            return GenerateXYBuffer(spectrum, t, GetDeltaTime());
+            return GenerateXYBuffer(spectrum, t, GetDeltaTime(), sampleRate);
         }
 
         private double _lastTime = 0;
@@ -112,17 +112,15 @@ namespace OscVisualizer.Services
 
         private float scroll = 0f;
 
-        public List<XYPoint> GenerateXYBuffer(float[] fft, float time, float deltaTime)
+        public List<XYPoint> GenerateXYBuffer(float[] fft, float time, float deltaTime, int sampleRate)
         {
-            const int sampleRate = 48000;
-
             // --- オーディオ解析 ---
-            float kick = GetBand(fft, 100, 200, sampleRate);
+            float kick = GetBand(fft, 50, 100, sampleRate);
             float snare = GetBand(fft, 1500, 3000, sampleRate);
             float hat = GetBand(fft, 6000, 12000, sampleRate);
 
-            kick = MathF.Min(kick, 1.5f);
-            snare = MathF.Min(snare, 1.5f);
+            kick = MathF.Min(kick, 10f);
+            snare = MathF.Min(snare, 2f);
             hat = MathF.Min(hat, 1.5f);
 
             List<XYPoint> seg = new();
@@ -194,7 +192,7 @@ namespace OscVisualizer.Services
             // ============================================================
             // ③ フェラーリ（ポリライン）
             // ============================================================
-            seg.AddRange(DrawFerrari3D(time, kick, hat));
+            seg.AddRange(DrawFerrari3D(time, kick, snare, hat));
 
             return seg;
         }
@@ -307,24 +305,22 @@ namespace OscVisualizer.Services
         {
             float d = 1.0f / (p.Z + 1.0f); // 奥行き補正
             return new Vector2(p.X * d, p.Y * d);
-
-            //float d = 1.0f / (z + 1.0f); // 簡易パース
-            //return new Vector2(x * d, y * d);
         }
 
 
-        List<XYPoint> DrawFerrari3D(float time, float kick, float hat)
+        List<XYPoint> DrawFerrari3D(float time, float kick, float snare, float hat)
         {
             List<XYPoint> seg = new List<XYPoint>();
 
-            float yaw = 0; // MathF.Sin(time * 0.5f) * 0.05f;   // 左右揺れ
-            float pitch = MathF.Sin(time * 0.7f) * 0.3f - 0.4f;   // 上下揺れ
-            float roll = MathF.Sin(time * 1.3f) * 0.05f;  // 車体の傾き
+            float yaw = 0f; // MathF.Sin(time * 0.8f) * 0.05f;   // 左右揺れ
+            float pitch = MathF.Sin(time * 0.7f +  (float)(Math.PI * (snare / 8f))) * 0.2f - 0.2f;   // 前後揺れ
+            float roll = MathF.Sin(time * 0.7f) * 0.05f;  // 車体の傾き
 
-            float slide = MathF.Sin(time * 1.3f) * 0.5f;  // 車体の傾き
+            float slide = MathF.Sin(time * 0.7f + 0.1f) * 0.4f;  // 車体の横位置
+            //slide += Math.Sign(slide) * Math.Abs(snare) * 0.1f;
 
             // Kick で車体が上下に跳ねる
-            float bounce = kick * 0.1f;
+            float bounce = kick * 0.005f;
 
             // 回転 + 投影した頂点を保存
             Vector2[] pts = new Vector2[Car3D.Length];
@@ -376,12 +372,12 @@ namespace OscVisualizer.Services
                     new XYPoint(
                     L1.X + 0.05,
                     L1.Y - 0.025,
-                    intensity: 0.1 + fade1));
+                    intensity: 0.1 + fade1 + hat));
                 seg.Add(
                     new XYPoint(
                     L2.X - 0.05,
                     L2.Y - 0.025,
-                    intensity: 0.1 + fade2));
+                    intensity: 0.1 + fade2 + hat));
             }
 
 
