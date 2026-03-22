@@ -1,0 +1,57 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+       			 xmlns:vm="clr-namespace:OscVisualizer.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="OscVisualizer.WaveCircleView">
+  <Design.DataContext>
+    <!-- This only sets the DataContext for the previewer in an IDE,
+		to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
+    <vm:WaveCircleViewModel />
+  </Design.DataContext>
+
+
+  <StackPanel Margin="10" Spacing="10">
+    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10"
+          RowDefinitions="Auto,Auto,Auto">
+
+      <TextBlock Grid.Column="0" Grid.Row="0"
+           VerticalAlignment="Center">Parameter N:</TextBlock>
+      <Slider Grid.Column="1" Grid.Row="0"
+              Minimum="1" Maximum="10"
+              TickFrequency="1"
+              SmallChange="1"
+              Value="{Binding ParameterN, Mode=TwoWay}"
+              IsSnapToTickEnabled="True" />
+      <TextBlock Grid.Column="2" Grid.Row="0"
+                 Text="{Binding ParameterN}"
+                 VerticalAlignment="Center"/>
+
+      <TextBlock Grid.Column="0" Grid.Row="1"
+       VerticalAlignment="Center">Parameter D:</TextBlock>
+      <Slider Grid.Column="1" Grid.Row="1"
+              Minimum="1" Maximum="10"
+              TickFrequency="1"
+              SmallChange="1"
+              Value="{Binding ParameterD, Mode=TwoWay}"
+              IsSnapToTickEnabled="True" />
+      <TextBlock Grid.Column="2" Grid.Row="1"
+                 Text="{Binding ParameterD}"
+                 VerticalAlignment="Center"/>
+
+      <TextBlock Grid.Column="0" Grid.Row="2"
+                 VerticalAlignment="Center">Ratation Speed:</TextBlock>
+      <Slider Grid.Column="1" Grid.Row="2"
+              Minimum="0" Maximum="50"
+              TickFrequency="0.1"
+              SmallChange="0.1"
+              Value="{Binding RotationSpeed, Mode=TwoWay}"
+              IsSnapToTickEnabled="True" />
+      <TextBlock Grid.Column="2" Grid.Row="2"
+                 Text="{Binding RotationSpeed}"
+                 VerticalAlignment="Center"/>
+
+    </Grid>
+  </StackPanel>
+</UserControl>

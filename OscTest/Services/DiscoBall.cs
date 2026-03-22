@@ -42,7 +42,7 @@ namespace OscVisualizer.Services
         {
             var fmt = capture.WaveFormat;
             int channels = fmt.Channels;
-            int sampleRate = fmt.SampleRate;
+            int inputSampleRate = fmt.SampleRate;
 
             float[] wav = IAudioVisualizer.ConvertToWav1ch(capture, e);
 

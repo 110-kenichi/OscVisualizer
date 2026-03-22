@@ -27,4 +27,10 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
   </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="Views\WaveCircleView.axaml.cs">
+      <DependentUpon>WaveCircleView.axaml</DependentUpon>
+    </Compile>
+  </ItemGroup>
 </Project>

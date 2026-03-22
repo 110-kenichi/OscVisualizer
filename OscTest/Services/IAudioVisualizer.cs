@@ -1,27 +1,42 @@
-﻿using OscVisualizer.Models;
+﻿using Avalonia.Controls;
 using NAudio.CoreAudioApi;
 using NAudio.Wave;
+using OscVisualizer.Models;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using System.Numerics;
 
 namespace OscVisualizer.Services
 {
     public interface IAudioVisualizer
     {
+        /// <summary>
+        /// Converts audio data from a WASAPI capture source to a single-channel array of 32-bit floating-point samples
+        /// in WAV format.
+        /// </summary>
+        /// <remarks>If the input audio contains multiple channels, the method averages the channels to
+        /// produce a single-channel output. The method supports both PCM and IEEE float input formats, converting all
+        /// samples to normalized floating-point values in the range [-1.0, 1.0] as appropriate for WAV audio
+        /// processing.</remarks>
+        /// <param name="capture">The WASAPI capture instance that provides the audio format and source data.</param>
+        /// <param name="e">The event arguments containing the recorded audio buffer and the number of bytes recorded.</param>
+        /// <param name="cut">The maximum number of audio frames to convert. If set to 0 or less, all available frames are converted.</param>
+        /// <returns>An array of 32-bit floating-point values representing the audio samples in single-channel WAV format.</returns>
         static float[] ConvertToWav1ch(WasapiCapture capture, WaveInEventArgs e, int cut = 0)
         {
             var fmt = capture.WaveFormat;
 
             int channels = fmt.Channels;
-            int sampleRate = fmt.SampleRate;
+            int inputSampleRate = fmt.SampleRate;
             int bits = fmt.BitsPerSample;
             bool isFloat = fmt.Encoding == WaveFormatEncoding.IeeeFloat;
 
@@ -200,5 +215,43 @@ namespace OscVisualizer.Services
         /// <returns>A list of Point objects that represent the processed audio waveform data. The list may be empty if no audio
         /// data is available.</returns>
         List<XYPoint> ProcessAudio(WasapiCapture sender, WaveInEventArgs e);
+
+        /// <summary>
+        /// Gets the user control that provides the visual representation of the data being visualized.
+        /// </summary>
+        /// <remarks>This property is typically used to embed or display the visualizer's user interface
+        /// within a host application. The returned control may present complex data structures or interactive
+        /// visualizations, depending on the implementation.</remarks>
+        UserControl? VisualizerView
+        {
+            get
+            {
+                return null;
+            }
+        }
+
+        static string GetSettingsPath(string visualizerName)
+        {
+            var appName = "OscVisualizer";
+
+            var configDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                appName, visualizerName
+            );
+            Directory.CreateDirectory(configDir);
+
+            var settingsPath = Path.Combine(configDir, "settings.json");
+            return settingsPath;
+        }
+
+        void SaveSettings()
+        {
+            // デフォルト実装は何もしない
+        }
+
+        void LoadSettings()
+        {
+            // デフォルト実装は何もしない
+        }
     }
 }

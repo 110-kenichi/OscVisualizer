@@ -1,10 +1,11 @@
-﻿using System;
+﻿using OpenTK.Audio.OpenAL;
+using OscVisualizer.Models;
+using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using OscVisualizer.Models;
-using OpenTK.Audio.OpenAL;
 
 namespace OscVisualizer.Services
 {
@@ -12,7 +13,7 @@ namespace OscVisualizer.Services
     {
         // OpenAL
         private readonly int _source;
-        private readonly int _sampleRate;
+        private readonly int _outputTargetSampleRate;
 
         // JS版の状態
         private List<XYPoint> _points = new();
@@ -27,6 +28,7 @@ namespace OscVisualizer.Services
         // 設定
         private int _minSamplesPerSegment = 2;
         private double _speedScale = 1.0;   // 1.0 = 等速、0.5 = 2倍速、2.0 = 半速
+        private int _phaseShift = 0;
 
         public void SetBlankSamples(int samples) => _blankSamples = Math.Max(0, samples);
 
@@ -34,6 +36,12 @@ namespace OscVisualizer.Services
         {
             get => _speedScale;
             set => _speedScale = value;
+        }
+
+        public int PhaseShift
+        {
+            get => _phaseShift;
+            set => _phaseShift = value;
         }
 
         public bool InvertX { get; set; } = false;
@@ -55,13 +63,15 @@ namespace OscVisualizer.Services
         /// frameSamples parameter allows for flexibility in processing different frame sizes, which can affect
         /// performance and analysis granularity.</remarks>
         /// <param name="source">The identifier for the data source to be processed. Must be a valid source identifier.</param>
-        /// <param name="sampleRate">The sample rate, in hertz (Hz), at which the data will be processed. Must be greater than zero.</param>
+        /// <param name="outputTargetSampleRate">The sample rate, in hertz (Hz), at which the data will be processed. Must be greater than zero.</param>
         /// <param name="frameSamples">The number of samples per frame. Must be a positive integer. The default value is 1024.</param>
-        public XYProcessor(int source, int sampleRate, int frameSamples = 1024)
+        public XYProcessor(int source, int outputTargetSampleRate, int frameSamples = 1024)
         {
             _source = source;
-            _sampleRate = sampleRate;
+            _outputTargetSampleRate = outputTargetSampleRate;
             _frameSamples = frameSamples;
+            _delayBufferL = new float[_maxDelaySamples];
+            _delayBufferR = new float[_maxDelaySamples];
         }
 
         // JS: setPoints + _setupSegments
@@ -400,10 +410,80 @@ namespace OscVisualizer.Services
                 int buf = AL.SourceUnqueueBuffer(_source);
 
                 float[] pcm = GenerateXYBuffer();
-                AL.BufferData(buf, ALFormat.StereoFloat32Ext, pcm, _sampleRate);
+
+                int frames = pcm.Length / 2;
+
+                if (PhaseShift > 0)
+                {
+                    _writePosR = 0;
+
+                    for (int i = 0; i < frames; i++)
+                    {
+                        float L = pcm[i * 2];
+
+                        // 遅延バッファに書き込み
+                        _delayBufferL[_writePosL] = L;
+
+                        // 読み出し位置（動的に変化）
+                        int readPos = _writePosL - PhaseShift;
+                        if (readPos < 0)
+                            readPos += _maxDelaySamples;
+                        if (readPos >= _maxDelaySamples)
+                            readPos -= _maxDelaySamples;
+
+                        // 遅延された L を取得
+                        float delayedL = _delayBufferL[readPos];
+
+                        // L を置き換え
+                        pcm[i * 2] = delayedL;
+
+                        // 書き込み位置を進める
+                        _writePosL++;
+                        if (_writePosL >= _maxDelaySamples)
+                            _writePosL = 0;
+                    }
+                }
+                else if (PhaseShift < 0)
+                {
+                    _writePosL = 0;
+
+                    for (int i = 0; i < frames; i++)
+                    {
+                        float R = pcm[i * 2 + 1];
+
+                        // 遅延バッファに書き込み
+                        _delayBufferR[_writePosR] = R;
+
+                        // 読み出し位置（動的に変化）
+                        int readPos = _writePosR + PhaseShift;
+                        if (readPos < 0)
+                            readPos += _maxDelaySamples;
+                        if (readPos >= _maxDelaySamples)
+                            readPos -= _maxDelaySamples;
+
+                        // 遅延された R を取得
+                        float delayedR = _delayBufferR[readPos];
+
+                        // R を置き換え
+                        pcm[i * 2 + 1] = delayedR;
+
+                        // 書き込み位置を進める
+                        _writePosR++;
+                        if (_writePosR >= _maxDelaySamples)
+                            _writePosR = 0;
+                    }
+                }
+
+                AL.BufferData(buf, ALFormat.StereoFloat32Ext, pcm, _outputTargetSampleRate);
 
                 AL.SourceQueueBuffer(_source, buf);
             }
         }
+
+        private float[] _delayBufferL;
+        private int _writePosL = 0;
+        private float[] _delayBufferR;
+        private int _writePosR = 0;
+        private int _maxDelaySamples = 65535; // 最大遅延（必要に応じて調整）
     }
 }

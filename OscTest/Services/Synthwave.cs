@@ -38,7 +38,7 @@ namespace OscVisualizer.Services
         {
             var fmt = capture.WaveFormat;
             int channels = fmt.Channels;
-            int sampleRate = fmt.SampleRate;
+            int inputSampleRate = fmt.SampleRate;
 
             float[] wav = IAudioVisualizer.ConvertToWav1ch(capture, e);
 
@@ -64,7 +64,7 @@ namespace OscVisualizer.Services
             float t = (float)_sw.Elapsed.TotalSeconds;
 
 
-            return GenerateXYBuffer(spectrum, t, GetDeltaTime(), sampleRate);
+            return GenerateXYBuffer(spectrum, t, GetDeltaTime(), inputSampleRate);
         }
 
         private double _lastTime = 0;

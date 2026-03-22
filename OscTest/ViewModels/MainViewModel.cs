@@ -1,4 +1,5 @@
 ﻿using Avalonia;
+using Avalonia.Controls;
 using MathNet.Numerics;
 using MathNet.Numerics.IntegralTransforms;
 using NAudio.CoreAudioApi;
@@ -78,6 +79,30 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         }
     }
 
+    private int _phaseShift = 1;
+    /// <summary>
+    /// Gets or sets the scaling factor applied to speed calculations.
+    /// </summary>
+    /// <remarks>Changing this property raises a property change notification and updates the speed scale of
+    /// the associated XY processor if it is initialized.</remarks>
+    public int PhaseShift
+    {
+        get
+        {
+            return _phaseShift;
+        }
+        set
+        {
+            if (_phaseShift != value)
+            {
+                _phaseShift = value;
+                this.RaisePropertyChanged(nameof(PhaseShift));
+                if (_xyProcessor != null)
+                    _xyProcessor.PhaseShift = _phaseShift;
+            }
+        }
+    }
+
     /// <summary>
     /// 
     /// </summary>
@@ -104,8 +129,20 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         new Synthwave(),
     ];
 
-    public IAudioVisualizer? SelectedVisualizer { get; set; }
+    [Reactive]
+    public partial IAudioVisualizer? SelectedVisualizer { get; set; }
 
+    /// <summary>
+    /// Gets the view control associated with the currently selected visualizer.
+    /// </summary>
+    /// <remarks>This property returns the visualizer view for the selected visualizer. If no visualizer is
+    /// selected, the property returns null.</remarks>
+    [Reactive]
+    public partial Avalonia.Controls.Control? SelectedVisualizerView
+    {
+        set;
+        get;
+    }
 
     /// <summary>
     /// Initializes a new instance of the MainViewModel class, setting up audio processing and playback using default
@@ -147,6 +184,10 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         {
             if (_xyProcessor != null)
                 _xyProcessor.InvertY = v;
+        }).DisposeWith(_disposables);
+        this.WhenAnyValue(x => x.SelectedVisualizer).Subscribe(v =>
+        {
+            SelectedVisualizerView = SelectedVisualizer!.VisualizerView;
         }).DisposeWith(_disposables);
     }
 
@@ -255,18 +296,34 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             //_alDevice = ALC.OpenDevice(dn);
             _alDevice = OpenDevice(dn!);
 
-            ALContextAttributes a = new ALContextAttributes();
-            _alContext = ALC.CreateContext(_alDevice, a);
+            //// 拡張が使えるかチェック
+            //bool hasFreq = ALC.IsExtensionPresent(_alDevice, "ALC_SOFT_device_clock");
+            //if (hasFreq)
+            //{
+            //    int freq;
+            //    ALC.GetInteger(_alDevice, (AlcGetInteger)0x1007, 1, out freq);
+            //    Console.WriteLine("Device frequency: " + freq);
+            //}
+            //else
+            //{
+            //    Console.WriteLine("Device does not support ALC_SOFT_device_clock");
+            //}
+
+            ALContextAttributes attrib = new ALContextAttributes();
+            _alContext = ALC.CreateContext(_alDevice, attrib);
             ALC.MakeContextCurrent(_alContext);
 
             _alSource = AL.GenSource();
             _sampleBufferIds = AL.GenBuffers(8);
-            int sampleRate = 48000;
-            if (a.Frequency.HasValue)
-                sampleRate = a.Frequency.Value;
+
+            var device = new MMDeviceEnumerator().GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+            _capture = new WasapiLoopbackCapture(device);
+            var mixFormat = device.AudioClient.MixFormat;
+            int sampleRate = mixFormat.SampleRate;
 
             _xyProcessor = new XYProcessor(_alSource, sampleRate, sampleRate / 60);
             _xyProcessor.SpeedScale = _speedScale;
+            _xyProcessor.PhaseShift = _phaseShift;
             _xyProcessor.InvertX = InvertX;
             _xyProcessor.InvertY = InvertY;
 
@@ -281,11 +338,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             AL.SourcePlay(_alSource);
         }
 
-        var device = new MMDeviceEnumerator().GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
-
-        _capture = new WasapiLoopbackCapture(device);
-        var fmt = _capture.WaveFormat;
-
+        //var fmt = _capture.WaveFormat;
         _capture.DataAvailable += (s, e) =>
             {
                 _xyProcessor.SetPoints(SelectedVisualizer!.ProcessAudio((WasapiCapture)s!, e));
@@ -298,7 +351,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     public void Stop()
     {
         _capture?.StopRecording();
-        _capture?.Dispose();
+        _capture?.RecordingStopped -= (s, e) => _capture?.Dispose();
 
         lock (alLockObject)
         {
@@ -354,15 +407,6 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         Play();
     }
 
-    private void SaveSettings()
-    {
-        var json = JsonSerializer.Serialize(new { SelectedDevice, SpeedScale, SelectedVisualizer!.VisualizerName, InvertX, InvertY });
-
-        string settingsPath = GetSettingsPath();
-
-        File.WriteAllText(settingsPath, json);
-    }
-
     private static string GetSettingsPath()
     {
         var appName = "OscVisualizer";
@@ -376,33 +420,62 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         return settingsPath;
     }
 
+    private void SaveSettings()
+    {
+        try
+        {
+            var json = JsonSerializer.Serialize(new { SelectedDevice, SpeedScale, PhaseShift, SelectedVisualizer!.VisualizerName, InvertX, InvertY });
+
+            string settingsPath = GetSettingsPath();
+
+            File.WriteAllText(settingsPath, json);
+        }
+        catch
+        {
+            // 保存失敗は握りつぶす
+        }
+        foreach (var vis in VisualizerTypes)
+            vis.SaveSettings();
+    }
+
     private void LoadSettings()
     {
-        string settingsPath = GetSettingsPath();
-
-        SelectedVisualizer = VisualizerTypes[0];
-
-        if (!File.Exists(settingsPath))
-            return;
-
-        var json = File.ReadAllText(settingsPath);
-        var data = JsonSerializer.Deserialize<SettingsData>(json);
-
-        if (data != null)
+        try
         {
-            if (data.SelectedDevice != null && PlaybackDevices.Contains(data.SelectedDevice))
-                SelectedDevice = data.SelectedDevice;
-            SpeedScale = data.SpeedScale;
-            SelectedVisualizer = VisualizerTypes.FirstOrDefault(v => v.VisualizerName == data.VisualizerName) ?? VisualizerTypes[0];
-            InvertX = data.InvertX;
-            InvertY = data.InvertY;
+            string settingsPath = GetSettingsPath();
+
+            SelectedVisualizer = VisualizerTypes[0];
+
+            if (!File.Exists(settingsPath))
+                return;
+
+            var json = File.ReadAllText(settingsPath);
+            var data = JsonSerializer.Deserialize<SettingsData>(json);
+
+            if (data != null)
+            {
+                if (data.SelectedDevice != null && PlaybackDevices.Contains(data.SelectedDevice))
+                    SelectedDevice = data.SelectedDevice;
+                SpeedScale = data.SpeedScale;
+                PhaseShift = data.PhaseShift;
+                SelectedVisualizer = VisualizerTypes.FirstOrDefault(v => v.VisualizerName == data.VisualizerName) ?? VisualizerTypes[0];
+                InvertX = data.InvertX;
+                InvertY = data.InvertY;
+            }
         }
+        catch
+        {
+            // 読み込み失敗は握りつぶす
+        }
+        foreach (var vis in VisualizerTypes)
+            vis.LoadSettings();
     }
 
     private class SettingsData
     {
         public string? SelectedDevice { get; set; }
         public double SpeedScale { get; set; }
+        public int PhaseShift { get; set; }
         public string? VisualizerName { get; set; }
         public bool InvertX { get; set; }
         public bool InvertY { get; set; }

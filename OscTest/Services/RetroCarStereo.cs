@@ -210,7 +210,7 @@ namespace OscVisualizer.Services
         {
             var fmt = capture.WaveFormat;
             int channels = fmt.Channels;
-            int sampleRate = fmt.SampleRate;
+            int inputSampleRate = fmt.SampleRate;
 
             float[] wav = IAudioVisualizer.ConvertToWav1ch(capture, e);
 
@@ -243,7 +243,7 @@ namespace OscVisualizer.Services
 
             float f0 = 100f;                 // 最低周波数
             float f1 = 44100 / 2f;     // ナイキスト
-            float binHz = sampleRate / (float)fftSize;
+            float binHz = inputSampleRate / (float)fftSize;
 
             for (int i = 0; i < NumBars; i++)
             {

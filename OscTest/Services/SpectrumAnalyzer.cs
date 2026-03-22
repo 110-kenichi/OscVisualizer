@@ -33,14 +33,14 @@ namespace OscVisualizer.Services
 
         public List<XYPoint> ProcessAudio(WasapiCapture capture, WaveInEventArgs e)
         {
-            int sampleRate = capture.WaveFormat.SampleRate;
+            int inputSampleRate = capture.WaveFormat.SampleRate;
             float[] wav = IAudioVisualizer.ConvertToWav1ch(capture, e);
 
             //ハイパスフィルタ
             for (int i = 0; i < wav.Length; i++)
                 wav[i] = HighPass(wav[i]);
 
-            return ProcessAudio(wav, sampleRate);
+            return ProcessAudio(wav, inputSampleRate);
         }
 
         private List<XYPoint> ProcessAudio(float[] pcm, int sampleRate)
