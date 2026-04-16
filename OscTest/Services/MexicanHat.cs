@@ -200,7 +200,7 @@ namespace OscVisualizer.Services
                     double normX = (screenX / maxAbsX) * scale;
                     double normY = (screenY / maxAbsY) * scale;
 
-                    points.Add(new XYPoint(normX, normY, 1.0));
+                    points.Add(new XYPoint(normX, -normY, 1.0));
                 }
                 y += step;
                 for (int x = 180; x >= -180; x -= step)
@@ -218,7 +218,7 @@ namespace OscVisualizer.Services
                     double normX = (screenX / maxAbsX) * scale;
                     double normY = (screenY / maxAbsY) * scale;
 
-                    points.Add(new XYPoint(normX, normY, 1.0));
+                    points.Add(new XYPoint(normX, -normY, 1.0));
                 }
             }
             return points;
