@@ -142,151 +142,63 @@ namespace OscVisualizer.Services
                 _totalLength = 1e-6f;
 
             //HACK: 通常はコメントアウトする
-            _totalLength = 10;
+            //_totalLength = 10;
         }
 
-        // JS: intersect(p0, p1, bound, isX)
+        // Liang-Barsky line clipping for rect [-1,1] x [-1,1]
         /// <summary>
-        /// Calculates the intersection point between a line segment defined by two points and a specified axis-aligned
-        /// boundary.
+        /// Clips a line segment defined by two points to the bounds of a unit square centered at the origin
+        /// using the Liang-Barsky algorithm.
         /// </summary>
-        /// <remarks>The method returns <see langword="null"/> if the line segment is parallel to the
-        /// specified boundary or if the intersection point lies outside the segment.</remarks>
-        /// <param name="p0">The starting point of the line segment.</param>
-        /// <param name="p1">The ending point of the line segment.</param>
-        /// <param name="bound">The coordinate value of the boundary to intersect with. Interpreted as an x-coordinate if <paramref
-        /// name="isX"/> is <see langword="true"/>, or as a y-coordinate if <paramref name="isX"/> is <see
-        /// langword="false"/>.</param>
-        /// <param name="isX">A value indicating whether the intersection is calculated with respect to the x-axis (<see
-        /// langword="true"/>) or the y-axis (<see langword="false"/>).</param>
-        /// <returns>A <see cref="Point"/> representing the intersection point if the line segment crosses the specified
-        /// boundary; otherwise, <see langword="null"/> if there is no intersection within the segment.</returns>
-        private XYPoint? Intersect(XYPoint p0, XYPoint p1, double bound, bool isX)
-        {
-            double x0 = p0.X, y0 = p0.Y;
-            double x1 = p1.X, y1 = p1.Y;
-
-            if (isX)
-            {
-                double dx = x1 - x0;
-                if (dx == 0f) return null;
-
-                double t = (bound - x0) / dx;
-                if (t < 0f || t > 1f) return null;
-
-                double y = y0 + (y1 - y0) * t;
-                double b = p0.Intensity + (p1.Intensity - p0.Intensity) * t;
-
-                return new XYPoint(bound, y, b);
-            }
-            else
-            {
-                double dy = y1 - y0;
-                if (dy == 0f) return null;
-
-                double t = (bound - y0) / dy;
-                if (t < 0f || t > 1f) return null;
-
-                double x = x0 + (x1 - x0) * t;
-                double b = p0.Intensity + (p1.Intensity - p0.Intensity) * t;
-
-                return new XYPoint(x, bound, b);
-            }
-        }
-
-        // JS: clipSegment(p0, p1)
-        /// <summary>
-        /// Clips a line segment defined by two points to the bounds of a unit square centered at the origin.
-        /// </summary>
-        /// <remarks>The unit square is defined by the region where both X and Y coordinates are between
-        /// -1 and 1, inclusive. If both endpoints are inside the square, the original segment is returned. If both are
-        /// outside and the segment crosses the square, the intersection points with the square's edges are returned. If
-        /// only one endpoint is inside, the segment is clipped at the intersection with the square's
-        /// boundary.</remarks>
         /// <param name="p0">The starting point of the line segment to be clipped.</param>
         /// <param name="p1">The ending point of the line segment to be clipped.</param>
         /// <returns>A tuple containing the endpoints of the clipped segment if the original segment intersects the unit square;
         /// otherwise, <see langword="null"/>.</returns>
         private (XYPoint a, XYPoint b)? ClipSegment(XYPoint p0, XYPoint p1)
         {
-            bool Inside(XYPoint p) =>
-                p.X >= -1f && p.X <= 1f && p.Y >= -1f && p.Y <= 1f;
+            double dx = p1.X - p0.X;
+            double dy = p1.Y - p0.Y;
 
-            bool p0Inside = Inside(p0);
-            bool p1Inside = Inside(p1);
+            double t0 = 0.0;
+            double t1 = 1.0;
 
-            var bounds = new List<(double bound, bool isX)>
+            // p, q for each edge: left, right, bottom, top
+            ReadOnlySpan<double> p = [  -dx,    dx,   -dy,    dy];
+            ReadOnlySpan<double> q = [p0.X + 1, 1 - p0.X, p0.Y + 1, 1 - p0.Y];
+
+            for (int i = 0; i < 4; i++)
             {
-                (-1, true),  // x = -1
-                ( 1, true),  // x =  1
-                (-1, false), // y = -1
-                ( 1, false), // y =  1
-            };
-
-            var intersections = new List<XYPoint>();
-
-            foreach (var (bound, isX) in bounds)
-            {
-                var p = Intersect(p0, p1, bound, isX);
-                if (p != null)
-                    intersections.Add(p);
-            }
-
-            // ケース1：両端が内側 → そのまま
-            if (p0Inside && p1Inside)
-                return (p0, p1);
-
-            // ケース2：両端が外側
-            if (!p0Inside && !p1Inside)
-            {
-                if (intersections.Count == 2)
+                if (p[i] == 0.0)
                 {
-                    intersections.Sort((a, b) =>
-                    {
-                        double ta = (a.X - p0.X) * (a.X - p0.X) + (a.Y - p0.Y) * (a.Y - p0.Y);
-                        double tb = (b.X - p0.X) * (b.X - p0.X) + (b.Y - p0.Y) * (b.Y - p0.Y);
-                        return ta.CompareTo(tb);
-                    });
-                    return (intersections[0], intersections[1]);
+                    // 線分は境界と平行
+                    if (q[i] < 0.0)
+                        return null; // 完全に外側
+                    // そうでなければこの境界は無視
                 }
-                return null;
-            }
-
-            // ケース3：p0 外 → p1 内
-            if (!p0Inside && p1Inside)
-            {
-                if (intersections.Count > 0)
+                else
                 {
-                    intersections.Sort((a, b) =>
+                    double r = q[i] / p[i];
+                    if (p[i] < 0.0)
                     {
-                        double ta = (a.X - p1.X) * (a.X - p1.X) + (a.Y - p1.Y) * (a.Y - p1.Y);
-                        double tb = (b.X - p1.X) * (b.X - p1.X) + (b.Y - p1.Y) * (b.Y - p1.Y);
-                        return ta.CompareTo(tb);
-                    });
-                    var i0 = intersections[0];
-                    return (i0, p1);
+                        // 線分が矩形に入る側
+                        if (r > t1) return null;
+                        if (r > t0) t0 = r;
+                    }
+                    else
+                    {
+                        // 線分が矩形から出る側
+                        if (r < t0) return null;
+                        if (r < t1) t1 = r;
+                    }
                 }
-                return null;
             }
 
-            // ケース4：p0 内 → p1 外
-            if (p0Inside && !p1Inside)
-            {
-                if (intersections.Count > 0)
-                {
-                    intersections.Sort((a, b) =>
-                    {
-                        double ta = (a.X - p0.X) * (a.X - p0.X) + (a.Y - p0.Y) * (a.Y - p0.Y);
-                        double tb = (b.X - p0.X) * (b.X - p0.X) + (b.Y - p0.Y) * (b.Y - p0.Y);
-                        return ta.CompareTo(tb);
-                    });
-                    var i0 = intersections[0];
-                    return (p0, i0);
-                }
-                return null;
-            }
+            double di = p1.Intensity - p0.Intensity;
 
-            return null;
+            var a = new XYPoint(p0.X + t0 * dx, p0.Y + t0 * dy, p0.Intensity + t0 * di);
+            var b = new XYPoint(p0.X + t1 * dx, p0.Y + t1 * dy, p0.Intensity + t1 * di);
+
+            return (a, b);
         }
 
         // JS: process() 相当 → 1フレーム分の PCM を返す
@@ -317,6 +229,7 @@ namespace OscVisualizer.Services
 
             double scale = (_frameSamples / _totalLength) * _speedScale / 4;
             _index = _index % N;
+            int consecutiveSkips = 0;
 
             for (int i = 0; i < _frameSamples; i++)
             {
@@ -332,10 +245,17 @@ namespace OscVisualizer.Services
                         _skipNextProcess = false;
                     _index = (_index + 2) % N;
 
-                    pcm[i * 2 + 0] = (float)(Random.Shared.NextDouble() * 2f) - 1f;
-                    pcm[i * 2 + 1] = (float)(Random.Shared.NextDouble() * 2f) - 1f;
+                    // 全線分が画面外ならループを終了（残りは 0 のまま）
+                    if (++consecutiveSkips >= N / 2)
+                    {
+                        _skipNextProcess = false;
+                        break;
+                    }
+                    i--; // 同じサンプル位置で次の線分を試行
                     continue;
                 }
+
+                consecutiveSkips = 0;
 
                 var (a, b) = clipped.Value;
                 double dx = b.X - a.X;
