@@ -81,44 +81,41 @@ namespace OscVisualizer.Services
 
             var pts = FillCircularWaveformAsync(wav, inputSampleRate, 0.6f, 1f);
 
-            return pts.Result;
+            return pts;
         }
 
-        async Task<List<XYPoint>> FillCircularWaveformAsync(float[] samples, int sampleRate, float baseRadius = 0.6f, float ampScale = 0.6f)
+        private List<XYPoint> FillCircularWaveformAsync(float[] samples, int sampleRate, float baseRadius = 0.6f, float ampScale = 0.6f)
         {
             List<XYPoint> points = new List<XYPoint>();
             int N = samples.Length;
 
-            //await Dispatcher.UIThread.InvokeAsync(() =>
-            //{
-                float n = settingsViewModel.ParameterN;
-                float d = settingsViewModel.ParameterD;
-                float time = (float)_sw.Elapsed.TotalSeconds;
-                float angle = 0.5f + time * settingsViewModel.RotationSpeed;
-                // 回転行列の事前計算
-                float cosA = MathF.Cos(angle);
-                float sinA = MathF.Sin(angle);
+            float n = settingsViewModel.ParameterN;
+            float d = settingsViewModel.ParameterD;
+            float time = (float)_sw.Elapsed.TotalSeconds;
+            float angle = 0.5f + time * settingsViewModel.RotationSpeed;
+            // 回転行列の事前計算
+            float cosA = MathF.Cos(angle);
+            float sinA = MathF.Sin(angle);
 
-                for (int i = 0; i < N * d; i++)
+            for (int i = 0; i < N * d; i++)
+            {
                 {
-                    {
-                        float s = samples[i % N]; // -1..1
-                        float theta = 2f * MathF.PI * i / N;
-                        float r = baseRadius + ampScale * s;
+                    float s = samples[i % N]; // -1..1
+                    float theta = 2f * MathF.PI * i / N;
+                    float r = baseRadius + ampScale * s;
 
-                        float x = r * MathF.Cos(theta * n / d) * MathF.Cos(theta);
-                        float y = r * MathF.Cos(theta * n / d) * MathF.Sin(theta);
+                    float x = r * MathF.Cos(theta * n / d) * MathF.Cos(theta);
+                    float y = r * MathF.Cos(theta * n / d) * MathF.Sin(theta);
 
-                        float rx = x * cosA - y * sinA;
-                        float ry = x * sinA + y * cosA;
+                    float rx = x * cosA - y * sinA;
+                    float ry = x * sinA + y * cosA;
 
-                        points.Add(new XYPoint(rx, ry));
-                    }
-                    if (i > N)
-                        points.Add(points[points.Count - 1]);
+                    points.Add(new XYPoint(rx, ry));
                 }
-                points.Add(points[0]);
-            //});
+                if (i > N)
+                    points.Add(points[points.Count - 1]);
+            }
+            points.Add(points[0]);
 
             return points;
         }
