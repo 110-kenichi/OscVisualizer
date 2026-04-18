@@ -45,22 +45,6 @@ namespace OscVisualizer.Services
             get => "Mexican Hat";
         }
 
-        private UserControl? _visualizerView;
-
-        /// <summary>
-        /// 
-        /// </summary>
-        public UserControl? VisualizerView
-        {
-            get
-            {
-                return _visualizerView;
-            }
-        }
-
-        private WaveCircleViewModel settingsViewModel = new WaveCircleViewModel();
-
-
         /// <summary>
         /// Initializes a new instance of the MexicanHat class.
         /// </summary>
@@ -68,24 +52,7 @@ namespace OscVisualizer.Services
         /// constructor when you need to create a new MexicanHat with its default visualizer configuration.</remarks>
         public MexicanHat()
         {
-            /*
-            _visualizerView = new WaveCircleView();
-            settingsViewModel.PropertyChanged += (sender, e) =>
-            {
-                switch (e.PropertyName)
-                {
-                    case nameof(WaveCircleViewModel.ParameterN):
-                    case nameof(WaveCircleViewModel.ParameterD):
-                        if (_visualizerView?.DataContext is WaveCircleViewModel vm)
-                        {
-                            vm.ParameterN = settingsViewModel.ParameterN;
-                            vm.ParameterD = settingsViewModel.ParameterD;
-                        }
-                        break;
-                }
-            };
-            _visualizerView.DataContext = settingsViewModel;
-            */
+
         }
 
         private double _lastTime = 0;

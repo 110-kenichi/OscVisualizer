@@ -39,7 +39,7 @@ namespace OscVisualizer.Services
 
             float time = (float)_sw.Elapsed.TotalSeconds;
 
-            float angle = 0.5f + time * 3f;
+            float angle = 0.5f - time * 3f;
 
             List<XYPoint> points = TwistedWarp(wav, time, angle, envelope);
             return points;

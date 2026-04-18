@@ -29,6 +29,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Update="Views\TextRender3DView.axaml.cs">
+      <DependentUpon>TextRender3DView.axaml</DependentUpon>
+    </Compile>
     <Compile Update="Views\WaveCircleView.axaml.cs">
       <DependentUpon>WaveCircleView.axaml</DependentUpon>
     </Compile>

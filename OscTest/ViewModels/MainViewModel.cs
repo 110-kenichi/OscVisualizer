@@ -129,6 +129,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         new Synthwave(),
         new LaserDance(),
         new MexicanHat(),
+        new TextRender3D(),
     ];
 
     [Reactive]

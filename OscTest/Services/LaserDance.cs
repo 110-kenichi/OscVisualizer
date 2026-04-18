@@ -93,8 +93,6 @@ namespace OscVisualizer.Services
             return sum / (i1 - i0 + 1);
         }
 
-        private float scroll = 0f;
-
         public List<XYPoint> GenerateXYBuffer(float[] fft, float time, float deltaTime, int sampleRate)
         {
             // --- オーディオ解析 ---
