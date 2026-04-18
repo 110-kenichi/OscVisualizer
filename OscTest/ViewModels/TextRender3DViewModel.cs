@@ -16,6 +16,30 @@ namespace OscVisualizer.ViewModels
         /// </summary>
         /// <remarks></remarks>
         [Reactive]
+        public partial float ThetaX
+        {
+            get;
+            set;
+        } = 0f;
+
+        [Reactive]
+        public partial float ThetaY
+        {
+            get;
+            set;
+        } = 0;
+
+        [Reactive]
+        public partial float ThetaZ
+        {
+            get;
+            set;
+        } = 25f;
+
+        /// <summary>
+        /// </summary>
+        /// <remarks></remarks>
+        [Reactive]
         public partial String Text
         {
             get;

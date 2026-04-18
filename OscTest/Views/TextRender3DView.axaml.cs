@@ -2,11 +2,11 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 
-namespace OscVisualizer;
+namespace OscVisualizer.Views;
 
-public partial class TextRenderView : UserControl
+public partial class TextRender3DView : UserControl
 {
-    public TextRenderView()
+    public TextRender3DView()
     {
         InitializeComponent();
     }

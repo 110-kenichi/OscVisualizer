@@ -1,10 +1,15 @@
-﻿using Avalonia.Controls;
+﻿using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Threading;
 using DynamicData;
+using MathNet.Numerics;
+using MathNet.Numerics.Distributions;
+using MathNet.Numerics.IntegralTransforms;
 using NAudio.CoreAudioApi;
 using NAudio.Wave;
 using OscVisualizer.Models;
 using OscVisualizer.ViewModels;
+using OscVisualizer.Views;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -55,25 +60,160 @@ namespace OscVisualizer.Services
         /// constructor when you need to create a new TextRender with its default visualizer configuration.</remarks>
         public TextRender3D()
         {
-            _visualizerView = new TextRenderView();
+            _visualizerView = new TextRender3DView();
             settingsViewModel.PropertyChanged += (sender, e) =>
             {
-                switch (e.PropertyName)
+                if (_visualizerView?.DataContext is TextRender3DViewModel vm)
                 {
-                    case nameof(TextRender3DViewModel.Text):
-                        if (_visualizerView?.DataContext is TextRender3DViewModel vm)
-                        {
+                    switch (e.PropertyName)
+                    {
+                        case nameof(TextRender3DViewModel.Text):
                             vm.Text = settingsViewModel.Text;
-                        }
-                        break;
+                            break;
+                        case nameof(TextRender3DViewModel.ThetaX):
+                        case nameof(TextRender3DViewModel.ThetaY):
+                        case nameof(TextRender3DViewModel.ThetaZ):
+                            break;
+                    }
                 }
             };
             _visualizerView.DataContext = settingsViewModel;
         }
 
+        private float prevX = 0;
+        private float prevY = 0;
+        private float R = 0.995f; // カットオフ調整
+
+
+        private float HighPass(float x)
+        {
+            float y = x - prevX + R * prevY;
+            prevX = x;
+            prevY = y;
+            return y;
+        }
+
+        private static float GetBand(float[] fft, int start, int end, int sampleRate)
+        {
+            int fftSize = fft.Length;
+            float binHz = sampleRate / (float)fftSize;
+
+            int i0 = (int)(start / binHz);
+            int i1 = (int)(end / binHz);
+
+            float sum = 0;
+            for (int i = i0; i <= i1 && i < fftSize; i++)
+                sum += fft[i];
+
+            return sum / (i1 - i0 + 1);
+        }
+
         public List<XYPoint> ProcessAudio(WasapiCapture capture, WaveInEventArgs e)
         {
-            return TextToVectorXYPoints(settingsViewModel.Text, 0.025f, 0.05f);
+            // 3Dパラメータ
+            //float radius = 2.5f; // カメラの回転半径
+            float camX = 0.0f;   // カメラの
+            float camY = 0.0f;   // カメラの高さ
+            float camZ = 2.5f;   // カメラの
+            float d = 8.0f;      // 投影面までの距離
+
+            float thetaX = (float)(_sw.Elapsed.TotalSeconds * settingsViewModel.ThetaX); // 回転角（速度調整可）
+            float thetaY = (float)(_sw.Elapsed.TotalSeconds * settingsViewModel.ThetaY); // 回転角（速度調整可）
+            float thetaZ = (float)(_sw.Elapsed.TotalSeconds * settingsViewModel.ThetaZ); // 回転角（速度調整可）
+            thetaX = (float)(thetaX * Math.PI / 180); // X軸 (Pitch)
+            thetaY = (float)(thetaY * Math.PI / 180); // Y軸 (Yaw)
+            thetaZ = (float)(thetaZ * Math.PI / 180); // Z軸 (Roll)
+
+            // カメラ位置
+            Quaternion rotation = Quaternion.CreateFromYawPitchRoll(thetaY, thetaX, thetaZ);
+
+            Vector3 rotPos = new Vector3(camX, camY, camZ);
+            Vector3 camPos = Vector3.Transform(rotPos, rotation);
+
+            // カメラが原点(0,0,0)を見る
+            Vector3 camTarget = Vector3.Zero;
+            Vector3 camUp = Vector3.UnitY;
+            camUp = Vector3.Transform(camUp, rotation);
+
+            // ビュー行列（カメラ座標系への変換）
+            var view = CreateLookAt(camPos, camTarget, camUp);
+
+            // 文字アウトラインをXY平面(Z=0)に配置
+            var basePoints = TextToVectorXYPoints(settingsViewModel.Text, 1f, 0.05f);
+
+            var fmt = capture.WaveFormat;
+            int channels = fmt.Channels;
+            int inputSampleRate = fmt.SampleRate;
+
+            float[] wav = IAudioVisualizer.ConvertToWav1ch(capture, e);
+
+            int sampleRate = fmt.SampleRate;
+            //ハイパスフィルタ
+            prevX = 0;
+            prevY = 0;
+            for (int i = 0; i < wav.Length; i++)
+                wav[i] = HighPass(wav[i]);
+
+            // FFT 用に複素数配列へ
+            Complex32[] fft = new Complex32[wav.Length];
+            for (int i = 0; i < wav.Length; i++)
+                fft[i] = new Complex32(wav[i], 0);
+
+            // FFT 実行
+            Fourier.Forward(fft, FourierOptions.Matlab);
+
+            // 振幅スペクトルへ
+            float[] spectrum = new float[fft.Length / 2];
+            for (int i = 0; i < spectrum.Length; i++)
+                spectrum[i] = fft[i].Magnitude;
+
+            float kick = MathF.Min(GetBand(spectrum, 50, 100, sampleRate), 10f);
+            float snare = MathF.Min(GetBand(spectrum, 1500, 3000, sampleRate), 2f);
+            float hat = MathF.Min(GetBand(spectrum, 6000, 12000, sampleRate), 2f);
+
+            double scale = 0.25 + kick * 0.25;
+
+            var projected = new List<XYPoint>();
+            for (int i = 0; i < basePoints.Count; i += 2)
+            {
+                // 線分の2点
+                var p1 = new Vector3((float)basePoints[i].X, (float)basePoints[i].Y, 0);
+                var p2 = new Vector3((float)basePoints[i + 1].X, (float)basePoints[i + 1].Y, 0);
+
+                // カメラ座標系に変換
+                var v1 = Vector3.Transform(p1, view);
+                var v2 = Vector3.Transform(p2, view);
+
+                // パースペクティブ投影
+                var s1 = ProjectToScreen(v1, d);
+                var s2 = ProjectToScreen(v2, d);
+
+                projected.Add(new XYPoint(s1.X * scale, s1.Y * scale, hat));
+                projected.Add(new XYPoint(s2.X * scale, s2.Y * scale, hat));
+            }
+            return projected;
+        }
+
+        // カメラビュー行列生成
+        private static Matrix4x4 CreateLookAt(Vector3 eye, Vector3 target, Vector3 up)
+        {
+            var z = Vector3.Normalize(eye - target);
+            var x = Vector3.Normalize(Vector3.Cross(up, z));
+            var y = Vector3.Cross(z, x);
+
+            return new Matrix4x4(
+                x.X, y.X, z.X, 0,
+                x.Y, y.Y, z.Y, 0,
+                x.Z, y.Z, z.Z, 0,
+                -Vector3.Dot(x, eye), -Vector3.Dot(y, eye), -Vector3.Dot(z, eye), 1
+            );
+        }
+
+        // パースペクティブ投影
+        private static Vector2 ProjectToScreen(Vector3 v, float d)
+        {
+            float z = v.Z + d;
+            return new Vector2(v.X * d / z, v.Y * d / z);
         }
 
         // Ramer–Douglas–Peuckerアルゴリズム
@@ -163,6 +303,8 @@ namespace OscVisualizer.Services
 
             // 各サブパスにRDP適用
             float epsilon = 0.25f; // 誤差許容値（調整可）
+            float maxx = float.MinValue;
+            float maxy = float.MaxValue;
             foreach (var sub in subpaths)
             {
                 List<PointF> simp;
@@ -176,13 +318,30 @@ namespace OscVisualizer.Services
                 }
                 for (int i = 1; i < simp.Count; i++)
                 {
-                    float x1 = simp[i - 1].X * scale - 1.0f;
-                    float y1 = -simp[i - 1].Y * scale + 1f;
-                    float x2 = simp[i].X * scale - 1.0f;
-                    float y2 = -simp[i].Y * scale + 1f;
+                    float x1 = simp[i - 1].X;
+                    float y1 = -simp[i - 1].Y;
+                    float x2 = simp[i].X;
+                    float y2 = -simp[i].Y;
+                    maxx = Math.Max(x1, maxx);
+                    maxy = Math.Min(y1, maxy);
                     points.Add(new XYPoint(x1, y1, 1.0));
                     points.Add(new XYPoint(x2, y2, 1.0));
                 }
+                maxx = Math.Max((float)points[points.Count - 1].X, maxx);
+                maxy = Math.Min((float)points[points.Count - 1].Y, maxy);
+            }
+            for (int i = 0; i < points.Count; i++)
+            {
+                points[i].X -= maxx / 2;
+                points[i].Y -= maxy / 2;
+            }
+            float max = Math.Max(maxx, -maxy);
+            for (int i = 0; i < points.Count; i++)
+            {
+                points[i].X /= max;
+                points[i].Y /= max;
+                points[i].X *= scale;
+                points[i].Y *= scale;
             }
             return points;
         }
@@ -191,7 +350,7 @@ namespace OscVisualizer.Services
         {
             try
             {
-                var json = JsonSerializer.Serialize(new { settingsViewModel.Text });
+                var json = JsonSerializer.Serialize(new { settingsViewModel.Text, settingsViewModel.ThetaX, settingsViewModel.ThetaY, settingsViewModel.ThetaZ });
 
                 string settingsPath = IAudioVisualizer.GetSettingsPath(VisualizerName);
 
@@ -215,6 +374,9 @@ namespace OscVisualizer.Services
                 if (data != null)
                 {
                     settingsViewModel.Text = data.Text;
+                    settingsViewModel.ThetaX = data.ThetaX;
+                    settingsViewModel.ThetaY = data.ThetaY;
+                    settingsViewModel.ThetaZ = data.ThetaZ;
                 }
             }
             catch { }
@@ -223,6 +385,9 @@ namespace OscVisualizer.Services
         private class SettingsData
         {
             public string Text { get; set; } = "";
+            public float ThetaX { get; set; } = 0;
+            public float ThetaY { get; set; } = 0;
+            public float ThetaZ { get; set; } = 25f;
         }
 
     }

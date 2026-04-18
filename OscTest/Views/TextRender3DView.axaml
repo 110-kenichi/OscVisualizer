@@ -4,19 +4,55 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
        			 xmlns:vm="clr-namespace:OscVisualizer.ViewModels"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:Class="OscVisualizer.TextRenderView">
+             x:Class="OscVisualizer.Views.TextRender3DView">
   <Design.DataContext>
     <!-- This only sets the DataContext for the previewer in an IDE,
 		to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
-    <vm:TextRenderViewModel />
+    <vm:TextRender3DViewModel />
   </Design.DataContext>
 
-  <Grid Margin="10" RowDefinitions="Auto,*" RowSpacing="10">
-    <Label Content="Enter text to render:" Grid.Row="0"/>
+  <Grid Margin="10"
+        ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10"
+        RowDefinitions="Auto,Auto,Auto,*" RowSpacing="10">
+
+    <TextBlock Grid.Column="0" Grid.Row="0" VerticalAlignment="Center">θx:</TextBlock>
+    <Slider Grid.Column="1" Grid.Row="0"
+            Minimum="-360" Maximum="360"
+            TickFrequency="1"
+            SmallChange="1"
+            Value="{Binding ThetaX, Mode=TwoWay}"
+            IsSnapToTickEnabled="True" />
+    <TextBlock Grid.Column="2" Grid.Row="0"
+               Text="{Binding ThetaX}"
+               VerticalAlignment="Center"/>
+
+    <TextBlock Grid.Column="0" Grid.Row="1" VerticalAlignment="Center">θy:</TextBlock>
+    <Slider Grid.Column="1" Grid.Row="1"
+            Minimum="-360" Maximum="360"
+            TickFrequency="1"
+            SmallChange="1"
+            Value="{Binding ThetaY, Mode=TwoWay}"
+            IsSnapToTickEnabled="True" />
+    <TextBlock Grid.Column="2" Grid.Row="1"
+               Text="{Binding ThetaY}"
+               VerticalAlignment="Center"/>
+
+    <TextBlock Grid.Column="0" Grid.Row="2" VerticalAlignment="Center">θz:</TextBlock>
+    <Slider Grid.Column="1" Grid.Row="2"
+            Minimum="-360" Maximum="360"
+            TickFrequency="1"
+            SmallChange="1"
+            Value="{Binding ThetaZ, Mode=TwoWay}"
+            IsSnapToTickEnabled="True" />
+    <TextBlock Grid.Column="2" Grid.Row="2"
+               Text="{Binding ThetaZ}"
+               VerticalAlignment="Center"/>
+
+    <Label Content="Enter text to render:" Grid.Column="0" Grid.Row="3"/>
     <TextBox AcceptsReturn="True"
              Text="{Binding Text, Mode=TwoWay}"
              VerticalAlignment="Stretch"
              HorizontalAlignment="Stretch"
-             Grid.Row="1"/>
+             Grid.Column="1" Grid.Row="3"/>
   </Grid>
 </UserControl>

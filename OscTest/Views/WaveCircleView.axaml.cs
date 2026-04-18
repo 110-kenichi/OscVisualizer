@@ -2,7 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 
-namespace OscVisualizer;
+namespace OscVisualizer.Views;
 
 public partial class WaveCircleView : UserControl
 {

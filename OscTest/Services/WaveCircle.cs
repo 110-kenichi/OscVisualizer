@@ -5,6 +5,7 @@ using NAudio.CoreAudioApi;
 using NAudio.Wave;
 using OscVisualizer.Models;
 using OscVisualizer.ViewModels;
+using OscVisualizer.Views;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
