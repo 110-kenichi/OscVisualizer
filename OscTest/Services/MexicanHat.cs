@@ -66,22 +66,6 @@ namespace OscVisualizer.Services
             return delta;
         }
 
-        private static float GetBand(float[] fft, int start, int end, int sampleRate)
-        {
-            int fftSize = fft.Length;
-            float binHz = sampleRate / (float)fftSize;
-
-            int i0 = (int)(start / binHz);
-            int i1 = (int)(end / binHz);
-
-            float sum = 0;
-            for (int i = i0; i <= i1 && i < fftSize; i++)
-                sum += fft[i];
-
-            return sum / (i1 - i0 + 1);
-        }
-
-
         public List<XYPoint> ProcessAudio(WasapiCapture capture, WaveInEventArgs e)
         {
             var fmt = capture.WaveFormat;
@@ -119,9 +103,9 @@ namespace OscVisualizer.Services
             var points = new List<XYPoint>();
             int step = 12;
 
-            float kick = MathF.Min(GetBand(fft, 50, 100, sampleRate), 20f);
-            float snare = MathF.Min(GetBand(fft, 1500, 3000, sampleRate), 2f);
-            float hat = MathF.Min(GetBand(fft, 6000, 12000, sampleRate), 1.5f);
+            float kick = MathF.Min(IAudioVisualizer.GetBand(fft, 50, 100, sampleRate), 20f);
+            float snare = MathF.Min(IAudioVisualizer.GetBand(fft, 1500, 3000, sampleRate), 2f);
+            float hat = MathF.Min(IAudioVisualizer.GetBand(fft, 6000, 12000, sampleRate), 1.5f);
 
             double scale = 0.5 + snare * 0.25;
             double zScale = 1.0 + kick * 0.15;

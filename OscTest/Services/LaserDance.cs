@@ -78,27 +78,12 @@ namespace OscVisualizer.Services
             return delta;
         }
 
-        private static float GetBand(float[] fft, int start, int end, int sampleRate)
-        {
-            int fftSize = fft.Length;
-            float binHz = sampleRate / (float)fftSize;
-
-            int i0 = (int)(start / binHz);
-            int i1 = (int)(end / binHz);
-
-            float sum = 0;
-            for (int i = i0; i <= i1 && i < fftSize; i++)
-                sum += fft[i];
-
-            return sum / (i1 - i0 + 1);
-        }
-
         public List<XYPoint> GenerateXYBuffer(float[] fft, float time, float deltaTime, int sampleRate)
         {
             // --- オーディオ解析 ---
-            float kick = GetBand(fft, 50, 100, sampleRate);
-            float snare = GetBand(fft, 1500, 3000, sampleRate);
-            float hat = GetBand(fft, 6000, 12000, sampleRate);
+            float kick = IAudioVisualizer.GetBand(fft, 50, 100, sampleRate);
+            float snare = IAudioVisualizer.GetBand(fft, 1500, 3000, sampleRate);
+            float hat = IAudioVisualizer.GetBand(fft, 6000, 12000, sampleRate);
 
             kick = MathF.Min(kick, 20f);
             snare = MathF.Min(snare, 2f);

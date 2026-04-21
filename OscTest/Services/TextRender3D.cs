@@ -93,21 +93,6 @@ namespace OscVisualizer.Services
             return y;
         }
 
-        private static float GetBand(float[] fft, int start, int end, int sampleRate)
-        {
-            int fftSize = fft.Length;
-            float binHz = sampleRate / (float)fftSize;
-
-            int i0 = (int)(start / binHz);
-            int i1 = (int)(end / binHz);
-
-            float sum = 0;
-            for (int i = i0; i <= i1 && i < fftSize; i++)
-                sum += fft[i];
-
-            return sum / (i1 - i0 + 1);
-        }
-
         public List<XYPoint> ProcessAudio(WasapiCapture capture, WaveInEventArgs e)
         {
             // 3Dパラメータ
@@ -167,9 +152,9 @@ namespace OscVisualizer.Services
             for (int i = 0; i < spectrum.Length; i++)
                 spectrum[i] = fft[i].Magnitude;
 
-            float kick = MathF.Min(GetBand(spectrum, 50, 100, sampleRate), 10f);
-            float snare = MathF.Min(GetBand(spectrum, 1500, 3000, sampleRate), 2f);
-            float hat = MathF.Min(GetBand(spectrum, 6000, 12000, sampleRate), 2f);
+            float kick = MathF.Min(IAudioVisualizer.GetBand(spectrum, 50, 100, sampleRate), 10f);
+            float snare = MathF.Min(IAudioVisualizer.GetBand(spectrum, 1500, 3000, sampleRate), 2f);
+            float hat = MathF.Min(IAudioVisualizer.GetBand(spectrum, 6000, 12000, sampleRate), 2f);
 
             double scale = 0.25 + kick * 0.25;
 
@@ -214,49 +199,6 @@ namespace OscVisualizer.Services
         {
             float z = v.Z + d;
             return new Vector2(v.X * d / z, v.Y * d / z);
-        }
-
-        // Ramer–Douglas–Peuckerアルゴリズム
-        private static List<PointF> RdpSimplify(List<PointF> points, float epsilon)
-        {
-            if (points.Count < 3)
-                return new List<PointF>(points);
-
-            float maxDist = 0;
-            int index = 0;
-            for (int i = 1; i < points.Count - 1; i++)
-            {
-                float dist = PerpendicularDistance(points[i], points[0], points[^1]);
-                if (dist > maxDist)
-                {
-                    index = i;
-                    maxDist = dist;
-                }
-            }
-            if (maxDist > epsilon)
-            {
-                var left = RdpSimplify(points.GetRange(0, index + 1), epsilon);
-                var right = RdpSimplify(points.GetRange(index, points.Count - index), epsilon);
-                left.RemoveAt(left.Count - 1);
-                left.AddRange(right);
-                return left;
-            }
-            else
-            {
-                return new List<PointF> { points[0], points[^1] };
-            }
-        }
-
-        private static float PerpendicularDistance(PointF pt, PointF lineStart, PointF lineEnd)
-        {
-            float dx = lineEnd.X - lineStart.X;
-            float dy = lineEnd.Y - lineStart.Y;
-            if (dx == 0 && dy == 0)
-                return MathF.Sqrt((pt.X - lineStart.X) * (pt.X - lineStart.X) + (pt.Y - lineStart.Y) * (pt.Y - lineStart.Y));
-            float t = ((pt.X - lineStart.X) * dx + (pt.Y - lineStart.Y) * dy) / (dx * dx + dy * dy);
-            float projX = lineStart.X + t * dx;
-            float projY = lineStart.Y + t * dy;
-            return MathF.Sqrt((pt.X - projX) * (pt.X - projX) + (pt.Y - projY) * (pt.Y - projY));
         }
 
         private List<XYPoint> TextToVectorXYPoints(string text, float scale = 1.0f, float spacing = 0.1f)
@@ -314,7 +256,7 @@ namespace OscVisualizer.Services
                 }
                 else
                 {
-                    simp = RdpSimplify(sub, epsilon);
+                    simp = IAudioVisualizer.RdpSimplify(sub, epsilon);
                 }
                 for (int i = 1; i < simp.Count; i++)
                 {
