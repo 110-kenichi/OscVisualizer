@@ -68,8 +68,6 @@ namespace OscVisualizer.Services
                     switch (e.PropertyName)
                     {
                         case nameof(TextRender3DViewModel.Text):
-                            vm.Text = settingsViewModel.Text;
-                            break;
                         case nameof(TextRender3DViewModel.ThetaX):
                         case nameof(TextRender3DViewModel.ThetaY):
                         case nameof(TextRender3DViewModel.ThetaZ):

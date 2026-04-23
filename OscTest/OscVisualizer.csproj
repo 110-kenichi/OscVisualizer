@@ -11,6 +11,32 @@
   </ItemGroup>
 
   <ItemGroup>
+    <AvaloniaResource Remove="Assets\Cosmo Hosimaru.stl" />
+    <AvaloniaResource Remove="Assets\LeftStar.stl" />
+    <AvaloniaResource Remove="Assets\Lightning.stl" />
+    <AvaloniaResource Remove="Assets\RightStar.stl" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="Assets\Lightning.stl" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Assets\Cosmo Hosimaru.stl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\LeftStar.stl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\Lightning.stl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\RightStar.stl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Avalonia" Version="11.3.12" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.12" />
     <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.12" />

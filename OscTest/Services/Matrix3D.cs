@@ -113,7 +113,6 @@ namespace OscVisualizer.Services
         private float targetAngleY = 0f;   // 目標の角度
         private float currentAngleZ = 0f;  // 現在の角度
         private float targetAngleZ = 0f;   // 目標の角度
-        private float velocity = 0f;      // 変化の速度
 
         // タイマー（約30〜60fps）で毎回呼び出す処理
         private void UpdateRotation()
@@ -165,7 +164,6 @@ namespace OscVisualizer.Services
             // カメラ位置
             Quaternion rotation = Quaternion.CreateFromYawPitchRoll(thetaY, thetaX, thetaZ);
 
-            // カメラ位置
             Vector3 rotPos = new Vector3(camX, camY, camZ);
             Vector3 camPos = Vector3.Transform(rotPos, rotation);
 
