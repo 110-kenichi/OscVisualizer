@@ -131,7 +131,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         new MexicanHat(),
         new TextRender3D(),
         new Matrix3D(),
-        new CosmoHoshimaru()
+        new CosmoHoshimaru(),
+        new NeoGeo(),
     ];
 
     [Reactive]
