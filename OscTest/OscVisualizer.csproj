@@ -17,6 +17,10 @@
     <AvaloniaResource Remove="Assets\NEOGEO LOGO_BOTTOM.stl" />
     <AvaloniaResource Remove="Assets\NEOGEO LOGO_TOP.stl" />
     <AvaloniaResource Remove="Assets\RightStar.stl" />
+    <AvaloniaResource Remove="Assets\TRON_Body.stl" />
+    <AvaloniaResource Remove="Assets\TRON_Edge.stl" />
+    <AvaloniaResource Remove="Assets\TRON_Floor.stl" />
+    <AvaloniaResource Remove="Assets\TRON_Wall.stl" />
   </ItemGroup>
 
   <ItemGroup>
@@ -41,6 +45,21 @@
     </Content>
     <Content Include="Assets\RightStar.stl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\TRON_Body.stl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\TRON_Edge.stl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\TRON_Floor.stl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Assets\TRON_Wall.stl">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
 
