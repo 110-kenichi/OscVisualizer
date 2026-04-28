@@ -133,6 +133,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         new Matrix3D(),
         new CosmoHoshimaru(),
         new NeoGeo(),
+        new Tron(),
     ];
 
     [Reactive]
