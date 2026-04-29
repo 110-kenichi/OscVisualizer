@@ -14,6 +14,9 @@
     <AvaloniaResource Remove="Assets\Cosmo Hosimaru.stl" />
     <AvaloniaResource Remove="Assets\LeftStar.stl" />
     <AvaloniaResource Remove="Assets\Lightning.stl" />
+    <AvaloniaResource Remove="Assets\Moai_A.stl" />
+    <AvaloniaResource Remove="Assets\Moai_B.stl" />
+    <AvaloniaResource Remove="Assets\Moai_Ring.stl" />
     <AvaloniaResource Remove="Assets\NEOGEO LOGO_BOTTOM.stl" />
     <AvaloniaResource Remove="Assets\NEOGEO LOGO_TOP.stl" />
     <AvaloniaResource Remove="Assets\RightStar.stl" />
@@ -35,6 +38,15 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Assets\Lightning.stl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\Moai_A.stl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\Moai_B.stl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\Moai_Ring.stl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Assets\NEOGEO LOGO_BOTTOM.stl">

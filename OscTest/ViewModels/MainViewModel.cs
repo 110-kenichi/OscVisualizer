@@ -134,6 +134,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         new CosmoHoshimaru(),
         new NeoGeo(),
         new Tron(),
+        new Moai(),
     ];
 
     [Reactive]
