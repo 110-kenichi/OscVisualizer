@@ -261,6 +261,7 @@ namespace OscVisualizer.Services
 
         private static readonly Vector3[] CameraPositions = new Vector3[]
         {
+            new Vector3(0, 0, 200.0f),
             new Vector3(0, -10f, 30.0f),
             new Vector3(0, -30f, 60.0f),
             new Vector3(0, -1, 60.0f),
@@ -350,17 +351,35 @@ namespace OscVisualizer.Services
                 }
             }
 
-            // カメラ回転
-            if (cameraMode == CameraMode.Fixed)
+            _renderer.SceneTranslation = CameraPositions[currentCameraIndex];
+            if (currentCameraIndex == 0)
             {
-                _renderer.SceneRotationYDeg = fixedYAngle;
+                _renderer.SceneRotationXDeg = 0f;
+                if (cameraMode == CameraMode.Fixed)
+                {
+                    _renderer.SceneRotationZDeg = fixedYAngle;
+                }
+                else
+                {
+                    _renderer.SceneRotationZDeg += dt * rotateYAngle; // ゆっくり回転
+                }
+                _renderer.SceneRotationYDeg = 0;
             }
             else
             {
-                _renderer.SceneRotationYDeg += dt * rotateYAngle; // ゆっくり回転
+                _renderer.SceneRotationXDeg = -90f;
+                // カメラ回転
+                if (cameraMode == CameraMode.Fixed)
+                {
+                    _renderer.SceneRotationYDeg = fixedYAngle;
+                }
+                else
+                {
+                    _renderer.SceneRotationYDeg += dt * rotateYAngle; // ゆっくり回転
+                }
+                _renderer.SceneRotationZDeg = 0;
             }
 
-            _renderer.SceneTranslation = CameraPositions[currentCameraIndex];
             _renderer.Render(displayDevice);
             return new List<XYPoint>(displayDevice.Points);
         }
