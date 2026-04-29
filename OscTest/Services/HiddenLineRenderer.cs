@@ -653,6 +653,12 @@ namespace OscVisualizer.Services
             _cachedSceneModelCenter = null;
         }
 
+        public void RemoveInstance(SceneMeshInstance instance)
+        {
+            _instances.Remove(instance);
+            _cachedSceneModelCenter = null;
+        }
+
         public void ClearInstances()
         {
             _instances.Clear();
