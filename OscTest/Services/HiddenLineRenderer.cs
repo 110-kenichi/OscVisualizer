@@ -376,7 +376,6 @@ namespace OscVisualizer.Services
         }
     }
 
-
     public enum RotationCenterMode
     {
         Origin,
@@ -542,7 +541,12 @@ namespace OscVisualizer.Services
         private readonly int _rows;
         private readonly List<int>[,] _cells;
 
-        public ScreenTriangleGrid(int cols, int rows)
+        // Queryごとの重複除去用
+        private readonly int[] _marks;
+        private int _queryId;
+        private readonly object _queryLock = new object();
+
+        public ScreenTriangleGrid(int cols, int rows, int triangleCapacity)
         {
             _cols = cols;
             _rows = rows;
@@ -555,6 +559,9 @@ namespace OscVisualizer.Services
                     _cells[x, y] = new List<int>();
                 }
             }
+
+            _marks = new int[Math.Max(1, triangleCapacity)];
+            _queryId = 0;
         }
 
         public void AddTriangle(int triIndex, SceneTriangle tri)
@@ -570,11 +577,23 @@ namespace OscVisualizer.Services
             }
         }
 
-        public List<int> Query(float minX, float minY, float maxX, float maxY)
+        public void Query(float minX, float minY, float maxX, float maxY, List<int> result)
         {
-            GetCellRange(minX, minY, maxX, maxY, out int x0, out int y0, out int x1, out int y1);
+            result.Clear();
 
-            var set = new HashSet<int>();
+            int queryId;
+            lock (_queryLock)
+            {
+                _queryId++;
+                if (_queryId == int.MaxValue)
+                {
+                    Array.Clear(_marks, 0, _marks.Length);
+                    _queryId = 1;
+                }
+                queryId = _queryId;
+            }
+
+            GetCellRange(minX, minY, maxX, maxY, out int x0, out int y0, out int x1, out int y1);
 
             for (int y = y0; y <= y1; y++)
             {
@@ -583,12 +602,15 @@ namespace OscVisualizer.Services
                     var list = _cells[x, y];
                     for (int i = 0; i < list.Count; i++)
                     {
-                        set.Add(list[i]);
+                        int triIndex = list[i];
+                        if (_marks[triIndex] != queryId)
+                        {
+                            _marks[triIndex] = queryId;
+                            result.Add(triIndex);
+                        }
                     }
                 }
             }
-
-            return new List<int>(set);
         }
 
         private void GetCellRange(float minX, float minY, float maxX, float maxY, out int x0, out int y0, out int x1, out int y1)
@@ -672,7 +694,8 @@ namespace OscVisualizer.Services
         public void Render(IVectorDisplayDevice device)
         {
             var lines = GetFrameLines();
-            lines = LineOrderingOptimizer.ReorderForVectorDisplay(lines, connectionTolerance: 0.003f);
+            lines = LineOrderingOptimizer.ReorderForVectorDisplay(lines,
+                connectionTolerance: 0.003f);
 
             device.BeginFrame();
             foreach (var line in lines)
@@ -699,10 +722,7 @@ namespace OscVisualizer.Services
             var transformedVerticesPerInstance = new List<Vector3>[visibleInstances.Count];
             var rawProjectedPerInstance = new Vector2[visibleInstances.Count][];
 
-            object rawProjectedLock = new object();
-            var allRawProjected = new List<Vector2>(4096);
-
-            // 1. インスタンスごとの頂点変換・投影を並列化
+            // A: lock除去。各インスタンスごとのローカル配列に保持
             Parallel.For(0, visibleInstances.Count, instIndex =>
             {
                 var inst = visibleInstances[instIndex];
@@ -716,22 +736,23 @@ namespace OscVisualizer.Services
                 {
                     rawProjected[i] = ProjectRaw(worldVertices[i]);
                 }
-                rawProjectedPerInstance[instIndex] = rawProjected;
 
-                lock (rawProjectedLock)
-                {
-                    allRawProjected.AddRange(rawProjected);
-                }
+                rawProjectedPerInstance[instIndex] = rawProjected;
             });
+
+            var allRawProjected = new List<Vector2>(4096);
+            for (int i = 0; i < rawProjectedPerInstance.Length; i++)
+            {
+                if (rawProjectedPerInstance[i] != null)
+                    allRawProjected.AddRange(rawProjectedPerInstance[i]);
+            }
 
             Matrix3x2 fitTransform = BuildFitTransform(allRawProjected);
 
-            var sceneTriangles = new List<SceneTriangle>(4096);
             var perInstanceTriInfo = new SceneTriangleInfo[visibleInstances.Count][];
+            var triangleChunks = new List<SceneTriangle>[visibleInstances.Count];
 
-            object triLock = new object();
-
-            // 2. 三角形情報生成を並列化
+            // A: lock除去。三角形もインスタンスごとにローカル構築
             Parallel.For(0, visibleInstances.Count, instIndex =>
             {
                 var inst = visibleInstances[instIndex];
@@ -769,20 +790,23 @@ namespace OscVisualizer.Services
                     localTriangles.Add(st);
                 }
 
-                lock (triLock)
-                {
-                    sceneTriangles.AddRange(localTriangles);
-                }
+                triangleChunks[instIndex] = localTriangles;
             });
 
-            // 3. グリッド構築(遮蔽判定には全三角形を使う)
-            var grid = new ScreenTriangleGrid(GridCols, GridRows);
+            var sceneTriangles = new List<SceneTriangle>(4096);
+            for (int i = 0; i < triangleChunks.Length; i++)
+            {
+                if (triangleChunks[i] != null)
+                    sceneTriangles.AddRange(triangleChunks[i]);
+            }
+
+            // B: Query最適化版グリッド
+            var grid = new ScreenTriangleGrid(GridCols, GridRows, sceneTriangles.Count);
             for (int i = 0; i < sceneTriangles.Count; i++)
             {
                 grid.AddTriangle(i, sceneTriangles[i]);
             }
 
-            // 4. エッジ処理を並列化
             var allLines = new List<Line2D>[visibleInstances.Count];
 
             Parallel.For(0, visibleInstances.Count, instIndex =>
@@ -790,8 +814,10 @@ namespace OscVisualizer.Services
                 var inst = visibleInstances[instIndex];
                 var worldVertices = transformedVerticesPerInstance[instIndex];
                 var triInfo = perInstanceTriInfo[instIndex];
+                var rawProjected = rawProjectedPerInstance[instIndex];
 
                 var localLines = new List<Line2D>(Math.Max(16, inst.RenderEdges.Count / 4));
+                var candidateTriIndices = new List<int>(64);
 
                 for (int ei = 0; ei < inst.RenderEdges.Count; ei++)
                 {
@@ -800,21 +826,43 @@ namespace OscVisualizer.Services
                     if (!IsCandidateEdge(edge, triInfo, inst.DrawBoundaryEdges))
                         continue;
 
-                    Vector3 p0 = worldVertices[edge.V0];
-                    Vector3 p1 = worldVertices[edge.V1];
+                    Vector3 originalP0 = worldVertices[edge.V0];
+                    Vector3 originalP1 = worldVertices[edge.V1];
 
-                    if (p0.Z <= NearZ && p1.Z <= NearZ)
+                    if (originalP0.Z <= NearZ && originalP1.Z <= NearZ)
                         continue;
 
-                    if (!ClipLineToNearPlane(ref p0, ref p1, NearZ))
-                        continue;
+                    Vector3 p0 = originalP0;
+                    Vector3 p1 = originalP1;
 
-                    Vector2 s0 = Vector2.Transform(ProjectRaw(p0), fitTransform);
-                    Vector2 s1 = Vector2.Transform(ProjectRaw(p1), fitTransform);
+                    bool clipped = !(p0.Z >= NearZ && p1.Z >= NearZ);
+
+                    if (clipped)
+                    {
+                        if (!ClipLineToNearPlane(ref p0, ref p1, NearZ))
+                            continue;
+                    }
+
+                    Vector2 s0;
+                    Vector2 s1;
+
+                    // A: 投影再利用
+                    if (!clipped)
+                    {
+                        s0 = Vector2.Transform(rawProjected[edge.V0], fitTransform);
+                        s1 = Vector2.Transform(rawProjected[edge.V1], fitTransform);
+                    }
+                    else
+                    {
+                        s0 = Vector2.Transform(ProjectRaw(p0), fitTransform);
+                        s1 = Vector2.Transform(ProjectRaw(p1), fitTransform);
+                    }
 
                     var seg = CreateSegment(p0, p1, s0, s1);
 
-                    var candidateTriIndices = grid.Query(seg.MinX, seg.MinY, seg.MaxX, seg.MaxY);
+                    // B: QueryのGC削減版
+                    grid.Query(seg.MinX, seg.MinY, seg.MaxX, seg.MaxY, candidateTriIndices);
+
                     var visibleSegments = new List<SceneSegment>(1) { seg };
 
                     for (int ci = 0; ci < candidateTriIndices.Count; ci++)
@@ -848,7 +896,6 @@ namespace OscVisualizer.Services
                 allLines[instIndex] = localLines;
             });
 
-            // 5. 結合
             var lines = new List<Line2D>(4096);
             for (int i = 0; i < allLines.Length; i++)
             {
@@ -856,7 +903,6 @@ namespace OscVisualizer.Services
                     lines.AddRange(allLines[i]);
             }
 
-            // 6. クリッピング
             var clipped = new List<Line2D>(lines.Count);
             for (int i = 0; i < lines.Count; i++)
             {
@@ -987,7 +1033,12 @@ namespace OscVisualizer.Services
         private bool IsCandidateEdge(MeshEdge edge, SceneTriangleInfo[] triInfo, bool drawBoundaryEdges)
         {
             if (edge.TriangleB < 0)
-                return drawBoundaryEdges;
+            {
+                if (!drawBoundaryEdges)
+                    return false;
+
+                return triInfo[edge.TriangleA].FrontFacing;
+            }
 
             var ta = triInfo[edge.TriangleA];
             var tb = triInfo[edge.TriangleB];
@@ -1325,7 +1376,6 @@ namespace OscVisualizer.Services
             return code;
         }
     }
-
 
     #endregion
 
