@@ -18,7 +18,7 @@ namespace OscVisualizer.Services
         public static List<Line2D> ReorderForVectorDisplay(
             IReadOnlyList<Line2D> input,
             float connectionTolerance = 0.002f,
-            int clusterGridSize = 4,
+            int clusterGridSize = 5,
             int clusterThreshold = 1000)
         {
             if (input == null || input.Count == 0)
