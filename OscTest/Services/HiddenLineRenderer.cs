@@ -376,7 +376,6 @@ namespace OscVisualizer.Services
         }
     }
 
-
     public enum RotationCenterMode
     {
         Origin,
@@ -987,7 +986,12 @@ namespace OscVisualizer.Services
         private bool IsCandidateEdge(MeshEdge edge, SceneTriangleInfo[] triInfo, bool drawBoundaryEdges)
         {
             if (edge.TriangleB < 0)
-                return drawBoundaryEdges;
+            {
+                if (!drawBoundaryEdges)
+                    return false;
+
+                return triInfo[edge.TriangleA].FrontFacing;
+            }
 
             var ta = triInfo[edge.TriangleA];
             var tb = triInfo[edge.TriangleB];
@@ -995,11 +999,11 @@ namespace OscVisualizer.Services
             bool fa = ta.FrontFacing;
             bool fb = tb.FrontFacing;
 
-            // シルエット
+            // 1. シルエット
             if (fa != fb)
                 return true;
 
-            // シャープエッジ
+            // 2. シャープエッジ
             if (DrawSharpEdges)
             {
                 float cosThreshold = MathF.Cos(SharpEdgeAngleDeg * MathF.PI / 180f);
