@@ -1046,11 +1046,11 @@ namespace OscVisualizer.Services
             bool fa = ta.FrontFacing;
             bool fb = tb.FrontFacing;
 
-            // シルエット
+            // 1. シルエット
             if (fa != fb)
                 return true;
 
-            // シャープエッジ
+            // 2. シャープエッジ
             if (DrawSharpEdges)
             {
                 float cosThreshold = MathF.Cos(SharpEdgeAngleDeg * MathF.PI / 180f);

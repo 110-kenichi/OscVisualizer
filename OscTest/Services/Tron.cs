@@ -128,9 +128,9 @@ namespace OscVisualizer.Services
                 });
             }
 
-            for (int x = 0; x < 4; x++)
+            for (int x = 0; x < 5; x++)
             {
-                for (int y = 0; y < 4; y++)
+                for (int y = 0; y < 5; y++)
                 {
                     floorScenes.Add(new SceneMeshInstance(floormesh)
                     {
@@ -315,9 +315,9 @@ namespace OscVisualizer.Services
             }
             //床をスクロールする
             int floorIndex = 0;
-            for (int x = 0; x < 4; x++)
+            for (int x = 0; x < 5; x++)
             {
-                for (int y = 0; y < 4; y++)
+                for (int y = 0; y < 5; y++)
                 {
                     floorScenes[floorIndex].Translation = new Vector3((200f * x) - (200f * 2), (200f * y) - (200f * 2) + ((float)(time / 2.5) % 200f), 0f);
                     floorIndex++;
