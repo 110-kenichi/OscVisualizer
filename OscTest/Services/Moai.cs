@@ -141,6 +141,8 @@ namespace OscVisualizer.Services
 
                 // シーン全体を全モデルの中心で回す
                 SceneRotationCenterMode = RotationCenterMode.Origin,
+
+                SharpEdgeAngleDeg = 50f,
             };
 
             _renderer.AddInstance(bodyaScene);

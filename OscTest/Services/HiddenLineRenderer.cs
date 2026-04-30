@@ -533,6 +533,7 @@ namespace OscVisualizer.Services
     internal struct SceneTriangleInfo
     {
         public bool FrontFacing;
+        public Vector3 Normal;
     }
 
     internal class ScreenTriangleGrid
@@ -619,6 +620,9 @@ namespace OscVisualizer.Services
     public class HiddenLineSilhouetteSceneRenderer
     {
         private readonly List<SceneMeshInstance> _instances = new();
+
+        public bool DrawSharpEdges { get; set; } = true;
+        public float SharpEdgeAngleDeg { get; set; } = 70f;
 
         public float FocalLength { get; set; } = 1.0f;
         public float ViewportScale { get; set; } = 1.0f;
@@ -771,12 +775,11 @@ namespace OscVisualizer.Services
                 }
             });
 
-            // 3. グリッド構築（ここは単純に直列でよい）
+            // 3. グリッド構築(遮蔽判定には全三角形を使う)
             var grid = new ScreenTriangleGrid(GridCols, GridRows);
             for (int i = 0; i < sceneTriangles.Count; i++)
             {
-                if (sceneTriangles[i].FrontFacing)
-                    grid.AddTriangle(i, sceneTriangles[i]);
+                grid.AddTriangle(i, sceneTriangles[i]);
             }
 
             // 4. エッジ処理を並列化
@@ -821,9 +824,6 @@ namespace OscVisualizer.Services
 
                         if (tri.OwnerInstanceIndex == instIndex &&
                             (tri.OwnerTriangleIndex == edge.TriangleA || tri.OwnerTriangleIndex == edge.TriangleB))
-                            continue;
-
-                        if (!tri.FrontFacing)
                             continue;
 
                         float segMaxZ = MathF.Max(seg.P0_3D.Z, seg.P1_3D.Z);
@@ -976,7 +976,8 @@ namespace OscVisualizer.Services
 
                 result[i] = new SceneTriangleInfo
                 {
-                    FrontFacing = frontFacing
+                    FrontFacing = frontFacing,
+                    Normal = n
                 };
             }
 
@@ -988,10 +989,27 @@ namespace OscVisualizer.Services
             if (edge.TriangleB < 0)
                 return drawBoundaryEdges;
 
-            bool fa = triInfo[edge.TriangleA].FrontFacing;
-            bool fb = triInfo[edge.TriangleB].FrontFacing;
+            var ta = triInfo[edge.TriangleA];
+            var tb = triInfo[edge.TriangleB];
 
-            return fa != fb;
+            bool fa = ta.FrontFacing;
+            bool fb = tb.FrontFacing;
+
+            // シルエット
+            if (fa != fb)
+                return true;
+
+            // シャープエッジ
+            if (DrawSharpEdges)
+            {
+                float cosThreshold = MathF.Cos(SharpEdgeAngleDeg * MathF.PI / 180f);
+                float ndot = Vector3.Dot(ta.Normal, tb.Normal);
+
+                if (ndot < cosThreshold)
+                    return true;
+            }
+
+            return false;
         }
 
         private SceneSegment CreateSegment(Vector3 p0, Vector3 p1, Vector2 s0, Vector2 s1)
@@ -1307,6 +1325,7 @@ namespace OscVisualizer.Services
             return code;
         }
     }
+
 
     #endregion
 

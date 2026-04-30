@@ -73,7 +73,7 @@ namespace OscVisualizer.Services
         /// constructor when you need to create a new Tron with its default visualizer configuration.</remarks>
         public Tron()
         {
-            _visualizerView = new TextRender3DView();
+            //_visualizerView = new TextRender3DView();
             _settingsViewModel.PropertyChanged += (sender, e) =>
             {
                 if (_visualizerView?.DataContext is TextRender3DViewModel vm)
