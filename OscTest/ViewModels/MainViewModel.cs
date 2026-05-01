@@ -136,6 +136,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         new Tron(),
         new Moai(),
         new Kaleidoscope(),
+        new FireWorks(),
     ];
 
     [Reactive]
