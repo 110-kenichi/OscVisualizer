@@ -135,6 +135,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         new NeoGeo(),
         new Tron(),
         new Moai(),
+        new Kaleidoscope(),
     ];
 
     [Reactive]
