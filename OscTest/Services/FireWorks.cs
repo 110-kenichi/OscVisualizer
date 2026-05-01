@@ -63,6 +63,7 @@ namespace OscVisualizer.Services
             public float Gravity;
             public float Brightness;
             public bool IsSparkler;
+            public bool BlinkOnFade;
         }
 
         private class FireBurst
@@ -124,6 +125,8 @@ namespace OscVisualizer.Services
 
         private FireParticle NewParticle(Vector2 center, Vector2 vel, float life, float drag, float gravity, float brightness, bool isSparkler = false)
         {
+            float gravityJitter = 0.9f + 0.2f * (float)_random.NextDouble(); // 0.9..1.1
+
             return new FireParticle
             {
                 Position = center,
@@ -132,9 +135,10 @@ namespace OscVisualizer.Services
                 Life = life,
                 MaxLife = life,
                 Drag = drag,
-                Gravity = gravity,
+                Gravity = gravity * gravityJitter,
                 Brightness = brightness,
                 IsSparkler = isSparkler,
+                BlinkOnFade = _random.NextDouble() < 0.5,
             };
         }
 
@@ -227,6 +231,11 @@ namespace OscVisualizer.Services
             }
             else if (type == 6) // Star/Cross
             {
+                // 8方向をランダムな角度で少し回転
+                float angleOffset = (float)((_random.NextDouble() * 2.0 - 1.0) * (Math.PI / 8.0)); // -22.5° .. 22.5°
+                float ca = MathF.Cos(angleOffset);
+                float sa = MathF.Sin(angleOffset);
+
                 var axes = new[]
                 {
                     new Vector2(1,0), new Vector2(-1,0), new Vector2(0,1), new Vector2(0,-1),
@@ -234,8 +243,13 @@ namespace OscVisualizer.Services
                     Vector2.Normalize(new Vector2(1,-1)), Vector2.Normalize(new Vector2(-1,-1))
                 };
 
-                foreach (var d in axes)
+                foreach (var d0 in axes)
                 {
+                    var d = new Vector2(
+                        d0.X * ca - d0.Y * sa,
+                        d0.X * sa + d0.Y * ca
+                    );
+
                     for (int j = 0; j < 4 + (int)(k * 4f); j++)
                     {
                         float sp = vBase * (0.6f + 0.5f * j / (4f + k * 4f));
@@ -374,25 +388,33 @@ namespace OscVisualizer.Services
                         ? (2f - (elapsed01 / attack01))
                         : 1f;
 
-                    // 消失直前: 1 -> 0.1
+                    // 消失直前は減光せず明滅OFFで消える
+                    bool isVisible = true;
                     const float fade01 = 0.25f;
-                    if (life01 < fade01)
+                    if (life01 < fade01 && p.BlinkOnFade)
                     {
-                        float t = life01 / fade01;
-                        intensityEnvelope = MathF.Min(intensityEnvelope, 0.1f + 0.9f * t);
+                        float t = life01 / fade01; // 1 -> 0
+                        float wave1 = 0.5f + 0.5f * MathF.Sin((burst.Age * 60f + i * 3.1f) * (1f + 2.5f * h));
+                        float wave2 = 0.5f + 0.5f * MathF.Sin((burst.Age * 97f + i * 5.7f));
+                        float flicker = wave1 * 0.6f + wave2 * 0.4f;
+                        float threshold = 0.25f + 0.7f * t; // 終端ほどOFFが増える
+                        isVisible = flicker >= threshold;
                     }
 
-                    float variation = 0.9f + 0.1f * p.Brightness * sparkle;
-                    float intensity = Math.Clamp(intensityEnvelope * variation, 0.1f, 2f);
+                    float variation = 0.95f + 0.1f * p.Brightness * sparkle;
+                    float intensity = Math.Clamp(intensityEnvelope * variation, 1f, 2f);
 
-                    AddSegment(points, p.PrevPosition.X, p.PrevPosition.Y, p.Position.X, p.Position.Y, intensity);
-
-                    if ((h > 0.45f || p.IsSparkler) && _random.NextDouble() < dt * (1.5 + 3.5 * h))
+                    if (isVisible)
                     {
-                        var d = RandomDir();
-                        float len = 0.015f + 0.035f * h;
-                        var ep = p.Position + d * len;
-                        AddSegment(points, p.Position.X, p.Position.Y, ep.X, ep.Y, Math.Min(2f, intensity + 0.2f));
+                        AddSegment(points, p.PrevPosition.X, p.PrevPosition.Y, p.Position.X, p.Position.Y, intensity);
+
+                        if ((h > 0.45f || p.IsSparkler) && _random.NextDouble() < dt * (1.5 + 3.5 * h))
+                        {
+                            var d = RandomDir();
+                            float len = 0.015f + 0.035f * h;
+                            var ep = p.Position + d * len;
+                            AddSegment(points, p.Position.X, p.Position.Y, ep.X, ep.Y, Math.Min(2f, intensity + 0.2f));
+                        }
                     }
                 }
 
@@ -452,19 +474,21 @@ namespace OscVisualizer.Services
 
                     const int trailSteps = 6;
                     float headIntensity = intensity * 0.8f;
-                    const float tailIntensity = 0.1f;
                     for (int t = 0; t < trailSteps; t++)
                     {
                         float u0 = t / (float)trailSteps;
                         float u1 = (t + 1) / (float)trailSteps;
+
+                        // 末端は減光せず非表示
+                        if (u1 < 0.45f)
+                            continue;
 
                         float sx = x0 + (x1 - x0) * u0;
                         float sy = y0 + (y1 - y0) * u0;
                         float ex = x0 + (x1 - x0) * u1;
                         float ey = y0 + (y1 - y0) * u1;
 
-                        float segIntensity = tailIntensity + (headIntensity - tailIntensity) * u1;
-                        AddSegment(points, sx, sy, ex, ey, segIntensity);
+                        AddSegment(points, sx, sy, ex, ey, headIntensity);
                     }
 
                     // 打ち上げ中の大きめの玉
@@ -492,8 +516,8 @@ namespace OscVisualizer.Services
                 }
             }
 
-            AddSegment(points, -1.0f, -1, -0.99f, -1, 0.1f);
-            AddSegment(points, 0.99f, -1, 1, -1, 0.1f);
+            AddSegment(points, -1.0f, -1, -0.99f, -1, 1f);
+            AddSegment(points, 0.99f, -1, 1, -1, 1f);
 
             return points;
         }
