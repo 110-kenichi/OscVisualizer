@@ -250,14 +250,24 @@ namespace OscVisualizer.Services
 
         public int TriangleA;
         public int TriangleB; // 境界エッジなら -1
+        public bool IsSurfaceFill;
 
-        public MeshEdge(int v0, int v1, int triangleA, int triangleB = -1)
+        public MeshEdge(int v0, int v1, int triangleA, int triangleB = -1, bool isSurfaceFill = false)
         {
             V0 = v0;
             V1 = v1;
             TriangleA = triangleA;
             TriangleB = triangleB;
+            IsSurfaceFill = isSurfaceFill;
         }
+    }
+
+    public enum SurfaceFillAxis
+    {
+        None,
+        X,
+        Y,
+        Z,
     }
 
     public class IndexedMesh
@@ -317,7 +327,11 @@ namespace OscVisualizer.Services
 
     public static class MeshBuilder
     {
-        public static IndexedMesh BuildIndexedMesh(StlModel model, float vertexMergeEpsilon = 1e-5f)
+        public static IndexedMesh BuildIndexedMesh(
+            StlModel model,
+            float vertexMergeEpsilon = 1e-5f,
+            SurfaceFillAxis fillAxis = SurfaceFillAxis.None,
+            float fillDensity = 0f)
         {
             var mesh = new IndexedMesh();
 
@@ -372,7 +386,211 @@ namespace OscVisualizer.Services
             }
 
             mesh.Edges.AddRange(edgeMap.Values);
+
+            if (fillAxis != SurfaceFillAxis.None && fillDensity > 0f)
+            {
+                AddSurfaceFillLines(mesh, fillAxis, fillDensity, vertexMergeEpsilon);
+            }
+
             return mesh;
+        }
+
+        private static void AddSurfaceFillLines(IndexedMesh mesh, SurfaceFillAxis fillAxis, float fillDensity, float epsilon)
+        {
+            Vector3 axis = fillAxis switch
+            {
+                SurfaceFillAxis.X => Vector3.UnitX,
+                SurfaceFillAxis.Y => Vector3.UnitY,
+                SurfaceFillAxis.Z => Vector3.UnitZ,
+                _ => Vector3.Zero,
+            };
+
+            if (axis == Vector3.Zero)
+                return;
+
+            float spacing = 1f / MathF.Max(fillDensity, 1e-3f);
+            float tol = MathF.Max(epsilon * 2f, 1e-6f);
+
+            var vertexMap = new Dictionary<QuantizedVertexKey, int>(mesh.Vertices.Count);
+            for (int i = 0; i < mesh.Vertices.Count; i++)
+            {
+                vertexMap[new QuantizedVertexKey(mesh.Vertices[i], epsilon)] = i;
+            }
+
+            int GetOrAddVertex(Vector3 v)
+            {
+                var key = new QuantizedVertexKey(v, epsilon);
+                if (vertexMap.TryGetValue(key, out int idx))
+                    return idx;
+
+                idx = mesh.Vertices.Count;
+                mesh.Vertices.Add(v);
+                vertexMap[key] = idx;
+                return idx;
+            }
+
+            var edgeSet = new HashSet<EdgeKey>();
+            for (int i = 0; i < mesh.Edges.Count; i++)
+            {
+                var e = mesh.Edges[i];
+                edgeSet.Add(new EdgeKey(e.V0, e.V1));
+            }
+
+            int triCount = mesh.Triangles.Count;
+            for (int triIndex = 0; triIndex < triCount; triIndex++)
+            {
+                var tri = mesh.Triangles[triIndex];
+                Vector3 p0 = mesh.Vertices[tri.I0];
+                Vector3 p1 = mesh.Vertices[tri.I1];
+                Vector3 p2 = mesh.Vertices[tri.I2];
+
+                Vector3 n = Vector3.Cross(p1 - p0, p2 - p0);
+                float nLen2 = n.LengthSquared();
+                if (nLen2 < 1e-20f)
+                    continue;
+                n /= MathF.Sqrt(nLen2);
+
+                Vector3 lineDir = axis - n * Vector3.Dot(axis, n);
+                if (lineDir.LengthSquared() < 1e-10f)
+                {
+                    Vector3 fallback = MathF.Abs(Vector3.Dot(Vector3.UnitX, n)) < 0.95f ? Vector3.UnitX : Vector3.UnitY;
+                    lineDir = fallback - n * Vector3.Dot(fallback, n);
+                    if (lineDir.LengthSquared() < 1e-10f)
+                        continue;
+                }
+                lineDir = Vector3.Normalize(lineDir);
+
+                Vector3 perp = Vector3.Cross(n, lineDir);
+                if (perp.LengthSquared() < 1e-12f)
+                    continue;
+                perp = Vector3.Normalize(perp);
+
+                float s0 = Vector3.Dot(p0, perp);
+                float s1 = Vector3.Dot(p1, perp);
+                float s2 = Vector3.Dot(p2, perp);
+
+                float minS = MathF.Min(s0, MathF.Min(s1, s2));
+                float maxS = MathF.Max(s0, MathF.Max(s1, s2));
+                if (maxS - minS < tol)
+                    continue;
+
+                int lineCount = Math.Min(512, (int)MathF.Ceiling((maxS - minS) / spacing) + 1);
+
+                for (int li = 0; li < lineCount; li++)
+                {
+                    float s = minS + li * spacing;
+                    if (s > maxS + tol)
+                        break;
+
+                    if (!TryGetLineSegmentInTriangleAtS(p0, p1, p2, perp, s, tol, out Vector3 a, out Vector3 b))
+                        continue;
+
+                    int ia = GetOrAddVertex(a);
+                    int ib = GetOrAddVertex(b);
+                    if (ia == ib)
+                        continue;
+
+                    var key = new EdgeKey(ia, ib);
+                    if (edgeSet.Contains(key))
+                        continue;
+
+                    edgeSet.Add(key);
+                    mesh.Edges.Add(new MeshEdge(key.A, key.B, triIndex, triIndex, isSurfaceFill: true));
+                }
+            }
+        }
+
+        private static bool TryGetLineSegmentInTriangleAtS(
+            Vector3 p0,
+            Vector3 p1,
+            Vector3 p2,
+            Vector3 perp,
+            float s,
+            float tol,
+            out Vector3 a,
+            out Vector3 b)
+        {
+            a = default;
+            b = default;
+
+            Vector3[] pts = new Vector3[6];
+            int count = 0;
+
+            void AddUnique(Vector3 p)
+            {
+                for (int i = 0; i < count; i++)
+                {
+                    if ((pts[i] - p).LengthSquared() <= tol * tol)
+                        return;
+                }
+                if (count < pts.Length)
+                    pts[count++] = p;
+            }
+
+            void IntersectEdge(Vector3 e0, Vector3 e1)
+            {
+                float d0 = Vector3.Dot(e0, perp) - s;
+                float d1 = Vector3.Dot(e1, perp) - s;
+
+                bool on0 = MathF.Abs(d0) <= tol;
+                bool on1 = MathF.Abs(d1) <= tol;
+
+                if (on0 && on1)
+                {
+                    AddUnique(e0);
+                    AddUnique(e1);
+                    return;
+                }
+
+                if (on0)
+                {
+                    AddUnique(e0);
+                    return;
+                }
+
+                if (on1)
+                {
+                    AddUnique(e1);
+                    return;
+                }
+
+                if ((d0 < 0f && d1 > 0f) || (d0 > 0f && d1 < 0f))
+                {
+                    float t = d0 / (d0 - d1);
+                    AddUnique(e0 + (e1 - e0) * t);
+                }
+            }
+
+            IntersectEdge(p0, p1);
+            IntersectEdge(p1, p2);
+            IntersectEdge(p2, p0);
+
+            if (count < 2)
+                return false;
+
+            float bestDist2 = -1f;
+            int bestI = 0;
+            int bestJ = 1;
+            for (int i = 0; i < count; i++)
+            {
+                for (int j = i + 1; j < count; j++)
+                {
+                    float d2 = (pts[j] - pts[i]).LengthSquared();
+                    if (d2 > bestDist2)
+                    {
+                        bestDist2 = d2;
+                        bestI = i;
+                        bestJ = j;
+                    }
+                }
+            }
+
+            if (bestDist2 <= tol * tol)
+                return false;
+
+            a = pts[bestI];
+            b = pts[bestJ];
+            return true;
         }
     }
 
@@ -1032,6 +1250,12 @@ namespace OscVisualizer.Services
 
         private bool IsCandidateEdge(MeshEdge edge, SceneTriangleInfo[] triInfo, bool drawBoundaryEdges)
         {
+            if (edge.IsSurfaceFill)
+            {
+                // 面塗り線は法線向きに依存させず、可視判定は後段の遮蔽処理に任せる
+                return true;
+            }
+
             if (edge.TriangleB < 0)
             {
                 if (!drawBoundaryEdges)

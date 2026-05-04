@@ -289,7 +289,7 @@ namespace OscVisualizer.Services
                 double brightness = a.Intensity + db * t;
 
                 // ★ 速度スケール（Brightness が低いと速くする。高いと遅くする）
-                double speedFactor = Math.Max(0.0001, Math.Exp(-brightness));
+                double speedFactor = Math.Max(0.000001, Math.Exp(-brightness));
 
                 // ★ 位置補間
                 double x = a.X + dx * t;

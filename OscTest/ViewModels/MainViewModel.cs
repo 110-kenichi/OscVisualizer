@@ -137,6 +137,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         new Moai(),
         new Kaleidoscope(),
         new FireWorks(),
+        new PomJuice(),
     ];
 
     [Reactive]
