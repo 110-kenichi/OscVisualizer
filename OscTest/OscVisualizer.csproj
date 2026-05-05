@@ -22,6 +22,17 @@
     <AvaloniaResource Remove="Assets\POM JUICE.stl" />
     <AvaloniaResource Remove="Assets\POM JUICE_Border.stl" />
     <AvaloniaResource Remove="Assets\RightStar.stl" />
+    <AvaloniaResource Remove="Assets\Solar System - Earth.stl" />
+    <AvaloniaResource Remove="Assets\Solar System - Ganymede.stl" />
+    <AvaloniaResource Remove="Assets\Solar System - Jupiter.stl" />
+    <AvaloniaResource Remove="Assets\Solar System - Mars.stl" />
+    <AvaloniaResource Remove="Assets\Solar System - Mercury.stl" />
+    <AvaloniaResource Remove="Assets\Solar System - Moon.stl" />
+    <AvaloniaResource Remove="Assets\Solar System - Neptune.stl" />
+    <AvaloniaResource Remove="Assets\Solar System - Saturn.stl" />
+    <AvaloniaResource Remove="Assets\Solar System - Sun.stl" />
+    <AvaloniaResource Remove="Assets\Solar System - Uranus.stl" />
+    <AvaloniaResource Remove="Assets\Solar System - Venus.stl" />
     <AvaloniaResource Remove="Assets\TRON_Body.stl" />
     <AvaloniaResource Remove="Assets\TRON_Edge.stl" />
     <AvaloniaResource Remove="Assets\TRON_Floor.stl" />
@@ -64,6 +75,39 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Assets\RightStar.stl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\Solar System - Earth.stl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\Solar System - Ganymede.stl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\Solar System - Jupiter.stl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\Solar System - Mars.stl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\Solar System - Mercury.stl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\Solar System - Moon.stl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\Solar System - Neptune.stl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\Solar System - Saturn.stl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\Solar System - Sun.stl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\Solar System - Uranus.stl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\Solar System - Venus.stl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Assets\TRON_Body.stl">

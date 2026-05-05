@@ -31,6 +31,12 @@ namespace OscVisualizer.Services
     {
         public List<Triangle> Triangles { get; } = new List<Triangle>();
 
+        /// <summary>
+        /// Normalizes the geometry so that all triangles fit within a unit cube centered at the origin.
+        /// </summary>
+        /// <remarks>This method scales and translates all triangles so that their bounding box fits
+        /// within a cube from -0.5 to 0.5 on each axis, preserving the relative proportions of the geometry. If there
+        /// are no triangles, the method performs no action.</remarks>
         public void NormalizeToUnitCube()
         {
             if (Triangles.Count == 0) return;

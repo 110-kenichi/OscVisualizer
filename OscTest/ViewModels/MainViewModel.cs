@@ -138,6 +138,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         new Kaleidoscope(),
         new FireWorks(),
         new PomJuice(),
+        new SolarSystem(),
     ];
 
     [Reactive]
