@@ -139,6 +139,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         new FireWorks(),
         new PomJuice(),
         new SolarSystem(),
+        new PictureRender3D(),
     ];
 
     [Reactive]

@@ -146,6 +146,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Update="Views\PictureRender3DView.axaml.cs">
+      <DependentUpon>PictureRender3DView.axaml</DependentUpon>
+    </Compile>
     <Compile Update="Views\TextRender3DView.axaml.cs">
       <DependentUpon>TextRender3DView.axaml</DependentUpon>
     </Compile>

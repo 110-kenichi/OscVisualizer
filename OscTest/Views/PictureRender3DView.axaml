@@ -1,0 +1,69 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+       			 xmlns:vm="clr-namespace:OscVisualizer.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="OscVisualizer.Views.PictureRender3DView">
+  <Design.DataContext>
+    <!-- This only sets the DataContext for the previewer in an IDE,
+		to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
+    <vm:PictureRender3DViewModel />
+  </Design.DataContext>
+
+  <Grid Margin="10"
+        ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10"
+        RowDefinitions="Auto,Auto,Auto,Auto,*" RowSpacing="10">
+
+    <TextBlock Grid.Column="0" Grid.Row="0" VerticalAlignment="Center">θx:</TextBlock>
+    <Slider Grid.Column="1" Grid.Row="0"
+            Minimum="-360" Maximum="360"
+            TickFrequency="1"
+            SmallChange="1"
+            Value="{Binding ThetaX, Mode=TwoWay}"
+            IsSnapToTickEnabled="True" />
+    <TextBlock Grid.Column="2" Grid.Row="0"
+               Text="{Binding ThetaX}"
+               VerticalAlignment="Center"/>
+
+    <TextBlock Grid.Column="0" Grid.Row="1" VerticalAlignment="Center">θy:</TextBlock>
+    <Slider Grid.Column="1" Grid.Row="1"
+            Minimum="-360" Maximum="360"
+            TickFrequency="1"
+            SmallChange="1"
+            Value="{Binding ThetaY, Mode=TwoWay}"
+            IsSnapToTickEnabled="True" />
+    <TextBlock Grid.Column="2" Grid.Row="1"
+               Text="{Binding ThetaY}"
+               VerticalAlignment="Center"/>
+
+    <TextBlock Grid.Column="0" Grid.Row="2" VerticalAlignment="Center">θz:</TextBlock>
+    <Slider Grid.Column="1" Grid.Row="2"
+            Minimum="-360" Maximum="360"
+            TickFrequency="1"
+            SmallChange="1"
+            Value="{Binding ThetaZ, Mode=TwoWay}"
+            IsSnapToTickEnabled="True" />
+    <TextBlock Grid.Column="2" Grid.Row="2"
+               Text="{Binding ThetaZ}"
+               VerticalAlignment="Center"/>
+
+    <TextBlock Grid.Column="0" Grid.Row="3" VerticalAlignment="Center">RDPε:</TextBlock>
+    <Slider Grid.Column="1" Grid.Row="3"
+            Minimum="0" Maximum="5"
+            TickFrequency="0.01"
+            SmallChange="0.01"
+            Value="{Binding Epsilon, Mode=TwoWay}"
+            IsSnapToTickEnabled="True" />
+    <TextBlock Grid.Column="2" Grid.Row="3"
+               Text="{Binding Epsilon}"
+               VerticalAlignment="Center"/>
+
+    <Label Content="Enter picture path to render:" Grid.Column="0" Grid.Row="4"/>
+    <TextBox AcceptsReturn="False"
+             Text="{Binding Path, Mode=TwoWay}"
+             VerticalAlignment="Top"
+             HorizontalAlignment="Stretch"
+             Grid.Column="1" Grid.Row="4"/>
+  </Grid>
+</UserControl>
