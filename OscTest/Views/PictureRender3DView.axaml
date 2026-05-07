@@ -11,59 +11,78 @@
     <vm:PictureRender3DViewModel />
   </Design.DataContext>
 
-  <Grid Margin="10"
+  <Grid x:Name="MainGrid"
+        Margin="10"
         ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10"
-        RowDefinitions="Auto,Auto,Auto,Auto,*" RowSpacing="10">
+        RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="10">
 
-    <TextBlock Grid.Column="0" Grid.Row="0" VerticalAlignment="Center">θx:</TextBlock>
-    <Slider Grid.Column="1" Grid.Row="0"
+    <Label Content="Enter picture path to render:" Grid.Column="0" Grid.Row="0"/>
+    <TextBox x:Name="PathTextBox"
+             Grid.Column="1" Grid.Row="0"
+             AcceptsReturn="False"
+             Text="{Binding Path, Mode=TwoWay}"
+             VerticalAlignment="Top"
+             HorizontalAlignment="Stretch" />
+    <Button x:Name="BrowseButton"
+            Grid.Column="2" Grid.Row="0"
+            Content="Browse"
+            VerticalAlignment="Top"
+            Padding="10,5" />
+
+    <TextBlock Grid.Column="0" Grid.Row="1" VerticalAlignment="Center">θx:</TextBlock>
+    <Slider Grid.Column="1" Grid.Row="1"
             Minimum="-360" Maximum="360"
             TickFrequency="1"
             SmallChange="1"
             Value="{Binding ThetaX, Mode=TwoWay}"
             IsSnapToTickEnabled="True" />
-    <TextBlock Grid.Column="2" Grid.Row="0"
+    <TextBlock Grid.Column="2" Grid.Row="1"
                Text="{Binding ThetaX}"
                VerticalAlignment="Center"/>
 
-    <TextBlock Grid.Column="0" Grid.Row="1" VerticalAlignment="Center">θy:</TextBlock>
-    <Slider Grid.Column="1" Grid.Row="1"
+    <TextBlock Grid.Column="0" Grid.Row="2" VerticalAlignment="Center">θy:</TextBlock>
+    <Slider Grid.Column="1" Grid.Row="2"
             Minimum="-360" Maximum="360"
             TickFrequency="1"
             SmallChange="1"
             Value="{Binding ThetaY, Mode=TwoWay}"
             IsSnapToTickEnabled="True" />
-    <TextBlock Grid.Column="2" Grid.Row="1"
+    <TextBlock Grid.Column="2" Grid.Row="2"
                Text="{Binding ThetaY}"
                VerticalAlignment="Center"/>
 
-    <TextBlock Grid.Column="0" Grid.Row="2" VerticalAlignment="Center">θz:</TextBlock>
-    <Slider Grid.Column="1" Grid.Row="2"
+    <TextBlock Grid.Column="0" Grid.Row="3" VerticalAlignment="Center">θz:</TextBlock>
+    <Slider Grid.Column="1" Grid.Row="3"
             Minimum="-360" Maximum="360"
             TickFrequency="1"
             SmallChange="1"
             Value="{Binding ThetaZ, Mode=TwoWay}"
             IsSnapToTickEnabled="True" />
-    <TextBlock Grid.Column="2" Grid.Row="2"
+    <TextBlock Grid.Column="2" Grid.Row="3"
                Text="{Binding ThetaZ}"
                VerticalAlignment="Center"/>
 
-    <TextBlock Grid.Column="0" Grid.Row="3" VerticalAlignment="Center">RDPε:</TextBlock>
-    <Slider Grid.Column="1" Grid.Row="3"
+    <TextBlock Grid.Column="0" Grid.Row="4" VerticalAlignment="Center">Threshold:</TextBlock>
+    <Slider Grid.Column="1" Grid.Row="4"
+            Minimum="0.1" Maximum="0.9"
+            TickFrequency="0.01"
+            SmallChange="0.01"
+            Value="{Binding Threshold, Mode=TwoWay}"
+            IsSnapToTickEnabled="True" />
+    <TextBlock Grid.Column="2" Grid.Row="4"
+               Text="{Binding Threshold}"
+               VerticalAlignment="Center"/>
+
+    <TextBlock Grid.Column="0" Grid.Row="5" VerticalAlignment="Center">RDPε:</TextBlock>
+    <Slider Grid.Column="1" Grid.Row="5"
             Minimum="0" Maximum="5"
             TickFrequency="0.01"
             SmallChange="0.01"
             Value="{Binding Epsilon, Mode=TwoWay}"
             IsSnapToTickEnabled="True" />
-    <TextBlock Grid.Column="2" Grid.Row="3"
+    <TextBlock Grid.Column="2" Grid.Row="5"
                Text="{Binding Epsilon}"
                VerticalAlignment="Center"/>
 
-    <Label Content="Enter picture path to render:" Grid.Column="0" Grid.Row="4"/>
-    <TextBox AcceptsReturn="False"
-             Text="{Binding Path, Mode=TwoWay}"
-             VerticalAlignment="Top"
-             HorizontalAlignment="Stretch"
-             Grid.Column="1" Grid.Row="4"/>
   </Grid>
 </UserControl>

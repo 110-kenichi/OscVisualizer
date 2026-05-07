@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using ReactiveUI.SourceGenerators;
 using Avalonia.Controls;
+using System.Threading;
 
 namespace OscVisualizer.ViewModels
 {
@@ -37,6 +38,13 @@ namespace OscVisualizer.ViewModels
         } = 25f;
 
         [Reactive]
+        public partial float Threshold
+        {
+            get;
+            set;
+        } = 0.5f;
+
+        [Reactive]
         public partial float Epsilon
         {
             get;
@@ -53,6 +61,65 @@ namespace OscVisualizer.ViewModels
             set;
         } = "Please input displaying picture path here";
 
+        // 実際に使用する値（遅延適用後）
+        [Reactive]
+        public partial float AppliedThreshold
+        {
+            get;
+            set;
+        } = 0.5f;
+
+        [Reactive]
+        public partial float AppliedEpsilon
+        {
+            get;
+            set;
+        } = 1.2f;
+
+        private CancellationTokenSource? _updateCts;
+        private const int DelayMs = 500; // ドラッグ終了後の遅延時間
+
+        public PictureRender3DViewModel()
+        {
+            // Thresholdが変わったときに遅延更新
+            this.WhenAnyValue(x => x.Threshold)
+                .Subscribe(_ => ScheduleThresholdUpdate());
+
+            // Epsilonが変わったときに遅延更新
+            this.WhenAnyValue(x => x.Epsilon)
+                .Subscribe(_ => ScheduleEpsilonUpdate());
+        }
+
+        private void ScheduleThresholdUpdate()
+        {
+            _updateCts?.Cancel();
+            _updateCts = new CancellationTokenSource();
+            var cts = _updateCts;
+
+            Task.Delay(DelayMs, cts.Token).ContinueWith(t =>
+            {
+                if (!t.IsCanceled)
+                {
+                    AppliedThreshold = Threshold;
+                }
+            }, TaskScheduler.FromCurrentSynchronizationContext());
+        }
+
+        private void ScheduleEpsilonUpdate()
+        {
+            _updateCts?.Cancel();
+            _updateCts = new CancellationTokenSource();
+            var cts = _updateCts;
+
+            Task.Delay(DelayMs, cts.Token).ContinueWith(t =>
+            {
+                if (!t.IsCanceled)
+                {
+                    AppliedEpsilon = Epsilon;
+                }
+            }, TaskScheduler.FromCurrentSynchronizationContext());
+        }
+
         private bool disposedValue;
 
         protected virtual void Dispose(bool disposing)
@@ -61,25 +128,15 @@ namespace OscVisualizer.ViewModels
             {
                 if (disposing)
                 {
-                    // TODO: マネージド状態を破棄します (マネージド オブジェクト)
+                    _updateCts?.Dispose();
                 }
 
-                // TODO: アンマネージド リソース (アンマネージド オブジェクト) を解放し、ファイナライザーをオーバーライドします
-                // TODO: 大きなフィールドを null に設定します
                 disposedValue = true;
             }
         }
 
-        // // TODO: 'Dispose(bool disposing)' にアンマネージド リソースを解放するコードが含まれる場合にのみ、ファイナライザーをオーバーライドします
-        // ~WaveCircleViewModel()
-        // {
-        //     // このコードを変更しないでください。クリーンアップ コードを 'Dispose(bool disposing)' メソッドに記述します
-        //     Dispose(disposing: false);
-        // }
-
         public void Dispose()
         {
-            // このコードを変更しないでください。クリーンアップ コードを 'Dispose(bool disposing)' メソッドに記述します
             Dispose(disposing: true);
             GC.SuppressFinalize(this);
         }
