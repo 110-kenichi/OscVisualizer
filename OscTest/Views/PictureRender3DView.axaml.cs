@@ -3,17 +3,18 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Markup.Xaml;
 using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
 using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Collections.Generic;
 
 namespace OscVisualizer.Views;
 
 public partial class PictureRender3DView : UserControl
 {
     private TextBox? _pathTextBox;
-    private Grid? _mainGrid;
 
     public PictureRender3DView()
     {
@@ -26,20 +27,7 @@ public partial class PictureRender3DView : UserControl
         Debug.WriteLine("[PictureRender3DView] Loaded event fired");
         
         _pathTextBox = this.FindControl<TextBox>("PathTextBox");
-        _mainGrid = this.FindControl<Grid>("MainGrid");
         var browseButton = this.FindControl<Button>("BrowseButton");
-
-        if (_pathTextBox != null)
-        {
-            Debug.WriteLine("[PictureRender3DView] PathTextBox found");
-            SetupTextBoxDragDrop();
-        }
-
-        if (_mainGrid != null)
-        {
-            Debug.WriteLine("[PictureRender3DView] MainGrid found");
-            SetupGridDragDrop();
-        }
 
         if (browseButton != null)
         {
@@ -47,90 +35,52 @@ public partial class PictureRender3DView : UserControl
             browseButton.Click += OnBrowseButtonClick;
         }
 
-        // UserControl全体にもハンドラーを登録
-        Debug.WriteLine("[PictureRender3DView] Setting up UserControl drag/drop");
-        this.AddHandler(DragDrop.DragOverEvent, OnDragOver, RoutingStrategies.Bubble);
-        this.AddHandler(DragDrop.DropEvent, OnDrop, RoutingStrategies.Bubble);
+        // ドラッグ&ドロップハンドラーを最後に登録
+        SetupDragDrop();
     }
 
-    private void SetupTextBoxDragDrop()
-    {
-        if (_pathTextBox == null) return;
-
-        // Bubble戦略でハンドラーを登録
-        _pathTextBox.AddHandler(DragDrop.DragOverEvent, OnDragOver, RoutingStrategies.Bubble);
-        _pathTextBox.AddHandler(DragDrop.DropEvent, OnDrop, RoutingStrategies.Bubble);
-
-        Debug.WriteLine("[SetupTextBoxDragDrop] Completed");
-    }
-
-    private void SetupGridDragDrop()
-    {
-        if (_mainGrid == null) return;
-
-        // Bubble戦略でハンドラーを登録
-        _mainGrid.AddHandler(DragDrop.DragOverEvent, OnDragOver, RoutingStrategies.Bubble);
-        _mainGrid.AddHandler(DragDrop.DropEvent, OnDrop, RoutingStrategies.Bubble);
-
-        Debug.WriteLine("[SetupGridDragDrop] Completed");
-    }
-
-    private void OnDragOver(object? sender, DragEventArgs e)
-    {
-        Debug.WriteLine($"[OnDragOver] Sender: {sender?.GetType().Name}, Files: {e.Data.Contains(DataFormats.Files)}");
-        
-        if (e.Data.Contains(DataFormats.Files))
-        {
-            e.DragEffects = DragDropEffects.Copy;
-            Debug.WriteLine("[OnDragOver] -> Copy allowed");
-        }
-        else
-        {
-            e.DragEffects = DragDropEffects.None;
-            Debug.WriteLine("[OnDragOver] -> No files");
-        }
-    }
-
-    private void OnDrop(object? sender, DragEventArgs e)
-    {
-        Debug.WriteLine($"[OnDrop] Sender: {sender?.GetType().Name}");
-        HandleFileDrop(e);
-    }
-
-    private void HandleFileDrop(DragEventArgs e)
+    private void SetupDragDrop()
     {
         try
         {
-            if (e.Data.Contains(DataFormats.Files))
+            // DragOverイベント
+            this.AddHandler(DragDrop.DragOverEvent, (s, e) =>
             {
-                var files = e.Data.GetFiles();
-                var fileCount = files?.Count() ?? 0;
-                Debug.WriteLine($"[HandleFileDrop] Files count: {fileCount}");
-
-                if (files != null && fileCount > 0)
+                Debug.WriteLine($"[SetupDragDrop.DragOver] Called");
+                if (e.Data.Contains(DataFormats.Files))
                 {
-                    var filePath = files.First().Path.LocalPath;
-                    Debug.WriteLine($"[HandleFileDrop] First file: {filePath}");
+                    e.DragEffects = DragDropEffects.Copy;
+                    e.Handled = true;
+                    Debug.WriteLine("[SetupDragDrop.DragOver] Files detected - Copy");
+                }
+            }, RoutingStrategies.Tunnel | RoutingStrategies.Bubble);
 
-                    if (this.DataContext is ViewModels.PictureRender3DViewModel viewModel)
+            // DropEvent
+            this.AddHandler(DragDrop.DropEvent, (s, e) =>
+            {
+                Debug.WriteLine($"[SetupDragDrop.Drop] Called");
+                if (e.Data.Contains(DataFormats.Files))
+                {
+                    var files = e.Data.GetFiles();
+                    if (files != null && files.Any())
                     {
-                        viewModel.Path = filePath;
-                        Debug.WriteLine($"[HandleFileDrop] Path updated in ViewModel");
-                    }
-                    else
-                    {
-                        Debug.WriteLine($"[HandleFileDrop] ViewModel not found. DataContext type: {this.DataContext?.GetType().Name}");
+                        var filePath = files.First().Path.LocalPath;
+                        Debug.WriteLine($"[SetupDragDrop.Drop] File: {filePath}");
+
+                        if (this.DataContext is ViewModels.PictureRender3DViewModel viewModel)
+                        {
+                            viewModel.Path = filePath;
+                        }
+                        e.Handled = true;
                     }
                 }
-            }
-            else
-            {
-                Debug.WriteLine("[HandleFileDrop] No files in drop data");
-            }
+            }, RoutingStrategies.Tunnel | RoutingStrategies.Bubble);
+
+            Debug.WriteLine("[SetupDragDrop] Handlers registered");
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"[HandleFileDrop] Exception: {ex}");
+            Debug.WriteLine($"[SetupDragDrop] Exception: {ex}");
         }
     }
 
@@ -138,22 +88,36 @@ public partial class PictureRender3DView : UserControl
     {
         try
         {
-            var dialog = new OpenFileDialog
+            Debug.WriteLine("[OnBrowseButtonClick] Starting file dialog");
+
+            var window = TopLevel.GetTopLevel(this) as Window;
+            if (window == null)
+            {
+                Debug.WriteLine("[OnBrowseButtonClick] Window not found");
+                return;
+            }
+
+            var options = new FilePickerOpenOptions
             {
                 AllowMultiple = false,
-                Filters = new System.Collections.Generic.List<FileDialogFilter>
+                FileTypeFilter = new[]
                 {
-                    new FileDialogFilter { Name = "Image Files", Extensions = new System.Collections.Generic.List<string> { "jpg", "jpeg", "png", "bmp", "gif" } },
-                    new FileDialogFilter { Name = "All Files", Extensions = new System.Collections.Generic.List<string> { "*" } }
+                    new FilePickerFileType("Image Files") 
+                    { 
+                        Patterns = new[] { "*.jpg", "*.jpeg", "*.png", "*.bmp", "*.gif" }
+                    },
+                    new FilePickerFileType("All Files") 
+                    { 
+                        Patterns = new[] { "*.*" }
+                    }
                 }
             };
 
-            var window = TopLevel.GetTopLevel(this) as Window;
-            var result = await dialog.ShowAsync(window);
+            var result = await window.StorageProvider.OpenFilePickerAsync(options);
 
-            if (result != null && result.Length > 0)
+            if (result != null && result.Count > 0)
             {
-                var filePath = result[0];
+                var filePath = result[0].Path.LocalPath;
                 Debug.WriteLine($"[OnBrowseButtonClick] Selected file: {filePath}");
 
                 if (this.DataContext is ViewModels.PictureRender3DViewModel viewModel)
@@ -161,6 +125,10 @@ public partial class PictureRender3DView : UserControl
                     viewModel.Path = filePath;
                     Debug.WriteLine($"[OnBrowseButtonClick] Path updated in ViewModel");
                 }
+            }
+            else
+            {
+                Debug.WriteLine("[OnBrowseButtonClick] No file selected");
             }
         }
         catch (Exception ex)
