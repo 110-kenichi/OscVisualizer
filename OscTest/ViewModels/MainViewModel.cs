@@ -140,6 +140,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         new PomJuice(),
         new SolarSystem(),
         new PictureRender3D(),
+        new Processing(),
     ];
 
     [Reactive]

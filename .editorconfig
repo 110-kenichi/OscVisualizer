@@ -1,0 +1,4 @@
+﻿[*.cs]
+
+# IDE0032: 自動プロパティを使用する
+dotnet_diagnostic.IDE0032.severity = none

@@ -41,7 +41,7 @@ namespace OscVisualizer.Services
             get => "Tron(1982)";
         }
 
-        private UserControl? _visualizerView;
+        private readonly UserControl? _visualizerView;
 
         /// <summary>
         /// 
@@ -246,11 +246,6 @@ namespace OscVisualizer.Services
         }
 
         private static readonly Random random = new Random(DateTime.Now.Millisecond);
-
-        private float currentAngleX = 0f;  // 現在の角度
-        private float targetAngleX = 0f;   // 目標の角度
-        private float currentAngleY = 0f;  // 現在の角度
-        private float targetAngleY = 0f;   // 目標の角度
 
         // クラスフィールド
         private enum CameraMode { Fixed, Rotating }
