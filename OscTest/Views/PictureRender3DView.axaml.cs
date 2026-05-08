@@ -19,68 +19,39 @@ public partial class PictureRender3DView : UserControl
     public PictureRender3DView()
     {
         InitializeComponent();
-        this.Loaded += OnViewLoaded;
+
+        DragDrop.AddDropHandler(this, OnDrop);
+        DragDrop.AddDragOverHandler(this, OnDragOver);
     }
 
-    private void OnViewLoaded(object? sender, RoutedEventArgs e)
+    private void OnDragOver(object? sender, DragEventArgs e)
     {
-        Debug.WriteLine("[PictureRender3DView] Loaded event fired");
-        
-        _pathTextBox = this.FindControl<TextBox>("PathTextBox");
-        var browseButton = this.FindControl<Button>("BrowseButton");
-
-        if (browseButton != null)
+        if (this.DataContext is ViewModels.PictureRender3DViewModel viewModel)
         {
-            Debug.WriteLine("[PictureRender3DView] BrowseButton found");
-            browseButton.Click += OnBrowseButtonClick;
+            // Accept file drops only; reject everything else
+            e.DragEffects = e.DataTransfer.Formats.Contains(DataFormat.File)
+            ? DragDropEffects.Copy
+            : DragDropEffects.None;
         }
-
-        // ドラッグ&ドロップハンドラーを最後に登録
-        SetupDragDrop();
     }
 
-    private void SetupDragDrop()
+    private void OnDrop(object? sender, DragEventArgs e)
     {
-        try
+        if (this.DataContext is ViewModels.PictureRender3DViewModel viewModel)
         {
-            // DragOverイベント
-            this.AddHandler(DragDrop.DragOverEvent, (s, e) =>
+            if (e.DataTransfer.Formats.Contains(DataFormat.File))
             {
-                Debug.WriteLine($"[SetupDragDrop.DragOver] Called");
-                if (e.Data.Contains(DataFormats.Files))
+                var files = e.DataTransfer.Items;
+                if (files != null)
                 {
-                    e.DragEffects = DragDropEffects.Copy;
-                    e.Handled = true;
-                    Debug.WriteLine("[SetupDragDrop.DragOver] Files detected - Copy");
-                }
-            }, RoutingStrategies.Tunnel | RoutingStrategies.Bubble);
-
-            // DropEvent
-            this.AddHandler(DragDrop.DropEvent, (s, e) =>
-            {
-                Debug.WriteLine($"[SetupDragDrop.Drop] Called");
-                if (e.Data.Contains(DataFormats.Files))
-                {
-                    var files = e.Data.GetFiles();
-                    if (files != null && files.Any())
+                    foreach (var file in files)
                     {
-                        var filePath = files.First().Path.LocalPath;
-                        Debug.WriteLine($"[SetupDragDrop.Drop] File: {filePath}");
-
-                        if (this.DataContext is ViewModels.PictureRender3DViewModel viewModel)
-                        {
-                            viewModel.Path = filePath;
-                        }
-                        e.Handled = true;
+                        // Process each dropped file
+                        viewModel.Path = file.TryGetFile()!.Path.LocalPath;
+                        break;
                     }
                 }
-            }, RoutingStrategies.Tunnel | RoutingStrategies.Bubble);
-
-            Debug.WriteLine("[SetupDragDrop] Handlers registered");
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"[SetupDragDrop] Exception: {ex}");
+            }
         }
     }
 
@@ -102,12 +73,12 @@ public partial class PictureRender3DView : UserControl
                 AllowMultiple = false,
                 FileTypeFilter = new[]
                 {
-                    new FilePickerFileType("Image Files") 
-                    { 
+                    new FilePickerFileType("Image Files")
+                    {
                         Patterns = new[] { "*.jpg", "*.jpeg", "*.png", "*.bmp", "*.gif" }
                     },
-                    new FilePickerFileType("All Files") 
-                    { 
+                    new FilePickerFileType("All Files")
+                    {
                         Patterns = new[] { "*.*" }
                     }
                 }

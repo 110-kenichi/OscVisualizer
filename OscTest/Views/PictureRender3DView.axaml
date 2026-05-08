@@ -17,12 +17,13 @@
         RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="10">
 
     <Label Content="Enter picture path to render:" Grid.Column="0" Grid.Row="0"/>
-    <TextBox x:Name="PathTextBox"
-             Grid.Column="1" Grid.Row="0"
-             AcceptsReturn="False"
-             Text="{Binding Path, Mode=TwoWay}"
-             VerticalAlignment="Top"
-             HorizontalAlignment="Stretch" />
+    <Border Background="#F3F4F6" DragDrop.AllowDrop="True" Grid.Row="0" Grid.Column="1">
+      <TextBox x:Name="PathTextBox"
+               AcceptsReturn="False"
+               Text="{Binding Path, Mode=TwoWay}"
+               VerticalAlignment="Top"
+               HorizontalAlignment="Stretch" />
+    </Border>
     <Button x:Name="BrowseButton"
             Grid.Column="2" Grid.Row="0"
             Content="Browse"
