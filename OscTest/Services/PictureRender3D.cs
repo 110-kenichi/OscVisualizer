@@ -646,6 +646,8 @@ namespace OscVisualizer.Services
                         settingsViewModel.Path = loaded.Path;
                         settingsViewModel.Threshold = loaded.Threshold;
                         settingsViewModel.Epsilon = loaded.Epsilon;
+                        settingsViewModel.AppliedThreshold = loaded.AppliedThreshold;
+                        settingsViewModel.AppliedEpsilon = loaded.AppliedEpsilon;
                         settingsViewModel.ThetaX = loaded.ThetaX;
                         settingsViewModel.ThetaY = loaded.ThetaY;
                         settingsViewModel.ThetaZ = loaded.ThetaZ;
