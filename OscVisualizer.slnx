@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+  </Folder>
   <Project Path="OscTest.Browser/SndCap.Browser.csproj" />
   <Project Path="OscTest.Desktop/OscVisualizer.Desktop.csproj" />
   <Project Path="OscTest/OscVisualizer.csproj" />

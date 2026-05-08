@@ -14,8 +14,6 @@ namespace OscVisualizer.Views;
 
 public partial class PictureRender3DView : UserControl
 {
-    private TextBox? _pathTextBox;
-
     public PictureRender3DView()
     {
         InitializeComponent();
@@ -59,12 +57,9 @@ public partial class PictureRender3DView : UserControl
     {
         try
         {
-            Debug.WriteLine("[OnBrowseButtonClick] Starting file dialog");
-
             var window = TopLevel.GetTopLevel(this) as Window;
             if (window == null)
             {
-                Debug.WriteLine("[OnBrowseButtonClick] Window not found");
                 return;
             }
 
@@ -89,17 +84,11 @@ public partial class PictureRender3DView : UserControl
             if (result != null && result.Count > 0)
             {
                 var filePath = result[0].Path.LocalPath;
-                Debug.WriteLine($"[OnBrowseButtonClick] Selected file: {filePath}");
 
                 if (this.DataContext is ViewModels.PictureRender3DViewModel viewModel)
                 {
                     viewModel.Path = filePath;
-                    Debug.WriteLine($"[OnBrowseButtonClick] Path updated in ViewModel");
                 }
-            }
-            else
-            {
-                Debug.WriteLine("[OnBrowseButtonClick] No file selected");
             }
         }
         catch (Exception ex)

@@ -40,7 +40,6 @@ namespace OscVisualizer.Services
         private List<XYPoint> basePoints = new List<XYPoint>();
         private List<List<XYPoint>> animationFrames = new List<List<XYPoint>>();
         private List<int> frameDurations = new List<int>(); // GIFフレームの遅延時間（単位: 10ms）
-        private double _frameTime = 0;
         private int _currentFrameIndex = 0;
         private Stopwatch _lastFrameTimeStopwatch = Stopwatch.StartNew();
 
@@ -61,7 +60,6 @@ namespace OscVisualizer.Services
                             {
                                 animationFrames = result.Item1;
                                 frameDurations = result.Item2;
-                                _frameTime = 0;
                                 _currentFrameIndex = 0;
                                 _lastFrameTimeStopwatch.Restart();
                                 basePoints.Clear();
@@ -71,7 +69,6 @@ namespace OscVisualizer.Services
                                 basePoints = result.Item1[0];
                                 animationFrames.Clear();
                                 frameDurations.Clear();
-                                _frameTime = 0;
                                 _currentFrameIndex = 0;
                             }
                             break;
