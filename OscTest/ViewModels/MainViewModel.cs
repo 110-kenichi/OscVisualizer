@@ -127,6 +127,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         new RetroCarStereo(),
         new DiscoBall(),
         new Synthwave(),
+        new Synthwave2(),
         new LaserDance(),
         new MexicanHat(),
         new TextRender3D(),

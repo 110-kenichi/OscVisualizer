@@ -33,6 +33,13 @@
     <AvaloniaResource Remove="Assets\Solar System - Sun.stl" />
     <AvaloniaResource Remove="Assets\Solar System - Uranus.stl" />
     <AvaloniaResource Remove="Assets\Solar System - Venus.stl" />
+    <AvaloniaResource Remove="Assets\SW2_Building.stl" />
+    <AvaloniaResource Remove="Assets\SW2_FrontL.stl" />
+    <AvaloniaResource Remove="Assets\SW2_FrontR.stl" />
+    <AvaloniaResource Remove="Assets\SW2_RearL.stl" />
+    <AvaloniaResource Remove="Assets\SW2_RearR.stl" />
+    <AvaloniaResource Remove="Assets\SW2_Road.stl" />
+    <AvaloniaResource Remove="Assets\SW2_Testarossa.stl" />
     <AvaloniaResource Remove="Assets\TRON_Body.stl" />
     <AvaloniaResource Remove="Assets\TRON_Edge.stl" />
     <AvaloniaResource Remove="Assets\TRON_Floor.stl" />
@@ -108,6 +115,27 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Assets\Solar System - Venus.stl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\SW2_Building.stl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\SW2_FrontL.stl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\SW2_FrontR.stl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\SW2_RearL.stl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\SW2_RearR.stl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\SW2_Road.stl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\SW2_Testarossa.stl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Assets\TRON_Body.stl">

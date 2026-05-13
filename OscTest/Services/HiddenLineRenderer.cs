@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Numerics;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace OscVisualizer.Services
@@ -765,10 +766,10 @@ namespace OscVisualizer.Services
         private readonly int _rows;
         private readonly List<int>[,] _cells;
 
-        // Queryごとの重複除去用
-        private readonly int[] _marks;
-        private int _queryId;
-        private readonly object _queryLock = new object();
+        // スレッドごとに独立したマーク配列と queryId を持つことでレースコンディションを防ぐ
+        private readonly int _triangleCapacity;
+        private readonly ThreadLocal<int[]> _marks;
+        private readonly ThreadLocal<int> _queryId;
 
         public ScreenTriangleGrid(int cols, int rows, int triangleCapacity)
         {
@@ -784,8 +785,9 @@ namespace OscVisualizer.Services
                 }
             }
 
-            _marks = new int[Math.Max(1, triangleCapacity)];
-            _queryId = 0;
+            _triangleCapacity = Math.Max(1, triangleCapacity);
+            _marks = new ThreadLocal<int[]>(() => new int[_triangleCapacity]);
+            _queryId = new ThreadLocal<int>(() => 0);
         }
 
         public void AddTriangle(int triIndex, SceneTriangle tri)
@@ -805,17 +807,15 @@ namespace OscVisualizer.Services
         {
             result.Clear();
 
-            int queryId;
-            lock (_queryLock)
+            var marks = _marks.Value!;
+
+            int queryId = _queryId.Value + 1;
+            if (queryId == int.MaxValue)
             {
-                _queryId++;
-                if (_queryId == int.MaxValue)
-                {
-                    Array.Clear(_marks, 0, _marks.Length);
-                    _queryId = 1;
-                }
-                queryId = _queryId;
+                Array.Clear(marks, 0, marks.Length);
+                queryId = 1;
             }
+            _queryId.Value = queryId;
 
             GetCellRange(minX, minY, maxX, maxY, out int x0, out int y0, out int x1, out int y1);
 
@@ -827,9 +827,9 @@ namespace OscVisualizer.Services
                     for (int i = 0; i < list.Count; i++)
                     {
                         int triIndex = list[i];
-                        if (_marks[triIndex] != queryId)
+                        if (marks[triIndex] != queryId)
                         {
-                            _marks[triIndex] = queryId;
+                            marks[triIndex] = queryId;
                             result.Add(triIndex);
                         }
                     }
@@ -1053,7 +1053,9 @@ namespace OscVisualizer.Services
                     Vector3 originalP0 = worldVertices[edge.V0];
                     Vector3 originalP1 = worldVertices[edge.V1];
 
-                    if (originalP0.Z <= NearZ && originalP1.Z <= NearZ)
+                    // 両頂点がカメラの後方（Z <= 0）にある場合のみスキップ
+                    // NearZ以下だがZ > 0の場合は後続のClipLineToNearPlaneで処理する
+                    if (originalP0.Z <= 0f && originalP1.Z <= 0f)
                         continue;
 
                     Vector3 p0 = originalP0;
