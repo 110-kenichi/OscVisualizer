@@ -63,6 +63,9 @@ namespace OscVisualizer.Services
 
         private List<SceneMeshInstance> roadScenes = new List<SceneMeshInstance>();
 
+        private List<SceneMeshInstance> treeLScenes = new List<SceneMeshInstance>();
+        private List<SceneMeshInstance> treeRScenes = new List<SceneMeshInstance>();
+
         /// <summary>
         /// Initializes a new instance of the TextRender class.
         /// </summary>
@@ -70,7 +73,7 @@ namespace OscVisualizer.Services
         /// constructor when you need to create a new SynthWave2 with its default visualizer configuration.</remarks>
         public Synthwave2()
         {
-            _visualizerView = new TextRender3DView();
+            //_visualizerView = new TextRender3DView();
             _settingsViewModel.PropertyChanged += (sender, e) =>
             {
                 if (_visualizerView?.DataContext is TextRender3DViewModel vm)
@@ -111,6 +114,8 @@ namespace OscVisualizer.Services
             tireScenes.Add(new SceneMeshInstance(tirefrmesh) { RotationCenterMode = RotationCenterMode.ModelCenter });
 
             var roadmesh = MeshBuilder.BuildIndexedMesh(StlLoader.Load(@"Assets\SW2_Road.stl"), vertexMergeEpsilon: 5e-5f);
+            var treeLmesh = MeshBuilder.BuildIndexedMesh(StlLoader.Load(@"Assets\SW2_TreeL.stl"), vertexMergeEpsilon: 5e-5f);
+            var treeRmesh = MeshBuilder.BuildIndexedMesh(StlLoader.Load(@"Assets\SW2_TreeR.stl"), vertexMergeEpsilon: 5e-5f);
 
             var buildmesh = MeshBuilder.BuildIndexedMesh(StlLoader.Load(@"Assets\SW2_Building.stl"), vertexMergeEpsilon: 5e-5f);
             var buildScene = new SceneMeshInstance(buildmesh)
@@ -121,6 +126,14 @@ namespace OscVisualizer.Services
             for (int y = -1; y < 5; y++)
             {
                 roadScenes.Add(new SceneMeshInstance(roadmesh)
+                {
+                    Translation = new Vector3(0, 400f * y, 0f),
+                });
+                treeLScenes.Add(new SceneMeshInstance(treeLmesh)
+                {
+                    Translation = new Vector3(0, 400f * y, 0f),
+                });
+                treeRScenes.Add(new SceneMeshInstance(treeRmesh)
                 {
                     Translation = new Vector3(0, 400f * y, 0f),
                 });
@@ -160,6 +173,10 @@ namespace OscVisualizer.Services
                 _renderer.AddInstance(ts);
             foreach (var rs in roadScenes)
                 _renderer.AddInstance(rs);
+            foreach (var rs in treeLScenes)
+                _renderer.AddInstance(rs);
+            foreach (var rs in treeRScenes)
+                _renderer.AddInstance(rs);
 
             _renderer.AddInstance(buildScene);
         }
@@ -179,8 +196,8 @@ namespace OscVisualizer.Services
 
             public void DrawLine(float x0, float y0, float x1, float y1)
             {
-                Points.Add(new XYPoint(x0, y0, 0));
-                Points.Add(new XYPoint(x1, y1, 0));
+                Points.Add(new XYPoint(x0, y0, 0.25));
+                Points.Add(new XYPoint(x1, y1, 0.25));
             }
 
             public void EndFrame()
@@ -269,13 +286,15 @@ namespace OscVisualizer.Services
 
             foreach (var ts in tireScenes)
             {
-                ts.RotationXDeg = (float)(time);
+                ts.RotationXDeg = (float)(-time);
             }
 
             //床をスクロールする
             for (int y = -1; y < 5; y++)
             {
                 roadScenes[y + 1].Translation = new Vector3(0, (400f * y) - ((float)time % 400f), 0f);
+                treeLScenes[y + 1].Translation = new Vector3(0, (400f * y) - ((float)time % 400f), 0f);
+                treeRScenes[y + 1].Translation = new Vector3(0, (400f * y) - ((float)time % 400f), 0f);
             }
             //カメラの位置をランダムに切り替える
             double now = _sw.Elapsed.TotalSeconds;
@@ -287,6 +306,22 @@ namespace OscVisualizer.Services
                 int next = cameraRandom.Next(SceneYDegs.Length);
                 currentCameraIndex = next;
             }
+            switch(currentCameraIndex)
+            {
+                case 0:
+                    for (int y = -1; y < 5; y++)
+                        treeLScenes[y + 1].Visible = true;
+                    break;
+                case 1:
+                    for (int y = -1; y < 5; y++)
+                        treeLScenes[y + 1].Visible = false;
+                    break;
+                case 2:
+                    for (int y = -1; y < 5; y++)
+                        treeLScenes[y + 1].Visible = false;
+                    break;
+            }
+
             _renderer.SceneRotationYDeg = SceneYDegs[currentCameraIndex];
             _renderer.Render(displayDevice);
 

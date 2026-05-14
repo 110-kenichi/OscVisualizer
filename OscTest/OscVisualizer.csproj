@@ -40,6 +40,8 @@
     <AvaloniaResource Remove="Assets\SW2_RearR.stl" />
     <AvaloniaResource Remove="Assets\SW2_Road.stl" />
     <AvaloniaResource Remove="Assets\SW2_Testarossa.stl" />
+    <AvaloniaResource Remove="Assets\SW2_TreeL.stl" />
+    <AvaloniaResource Remove="Assets\SW2_TreeR.stl" />
     <AvaloniaResource Remove="Assets\TRON_Body.stl" />
     <AvaloniaResource Remove="Assets\TRON_Edge.stl" />
     <AvaloniaResource Remove="Assets\TRON_Floor.stl" />
@@ -136,6 +138,12 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Assets\SW2_Testarossa.stl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\SW2_TreeL.stl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\SW2_TreeR.stl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Assets\TRON_Body.stl">
