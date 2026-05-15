@@ -98,6 +98,9 @@ namespace OscVisualizer.Services
 
     public static class StlLoader
     {
+        // 必要に応じて切り替え可能
+        public static bool MirrorXOnLoad { get; set; } = true;
+
         public static StlModel Load(string path)
         {
             using var fs = File.OpenRead(path);
@@ -111,6 +114,23 @@ namespace OscVisualizer.Services
                 fs.Position = 0;
                 return LoadAscii(fs);
             }
+        }
+
+        private static Triangle CreateTriangleWithAxisMirror(Vector3 v0, Vector3 v1, Vector3 v2, Vector3 normal)
+        {
+            if (!MirrorXOnLoad)
+                return new Triangle(v0, v1, v2, normal);
+
+            // X軸反転（左右反転）
+            v0.X = -v0.X;
+            v1.X = -v1.X;
+            v2.X = -v2.X;
+            normal.X = -normal.X;
+
+            // 反転で手系が変わるため頂点順を入れ替えて面向きを維持
+            (v1, v2) = (v2, v1);
+
+            return new Triangle(v0, v1, v2, normal);
         }
 
         private static bool IsBinaryStl(Stream stream)
@@ -161,7 +181,7 @@ namespace OscVisualizer.Services
                 if (normal.LengthSquared() < 1e-12f)
                     normal = Vector3.Normalize(Vector3.Cross(v1 - v0, v2 - v0));
 
-                model.Triangles.Add(new Triangle(v0, v1, v2, normal));
+                model.Triangles.Add(CreateTriangleWithAxisMirror(v0, v1, v2, normal));
             }
 
             return model;
@@ -203,7 +223,7 @@ namespace OscVisualizer.Services
                         if (normal.LengthSquared() < 1e-12f)
                             normal = Vector3.Normalize(Vector3.Cross(verts[1] - verts[0], verts[2] - verts[0]));
 
-                        model.Triangles.Add(new Triangle(verts[0], verts[1], verts[2], normal));
+                        model.Triangles.Add(CreateTriangleWithAxisMirror(verts[0], verts[1], verts[2], normal));
                     }
                 }
             }
