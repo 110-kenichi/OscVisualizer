@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -902,6 +903,23 @@ namespace OscVisualizer.Services
         public int GridCols { get; set; } = 24;
         public int GridRows { get; set; } = 24;
 
+        // スクリーン空間での密集線分間引き
+        /*
+         * •	EnableDenseLineCulling（ON/OFF）
+         * •	MinSegmentLength（短線分除外）
+         * •	DensityGridCols / DensityGridRows（密度判定グリッド）
+         * •	MaxLinesPerDensityCell（セル内上限）
+         * •	DirectionSimilarityThreshold（方向類似判定）
+         * •	MaxDirectionalRepresentativesPerCell（セル内の方向代表数上限）
+         */
+        public bool EnableDenseLineCulling { get; set; } = true;
+        public float MinSegmentLength { get; set; } = 0.003f;
+        public int DensityGridCols { get; set; } = 64;
+        public int DensityGridRows { get; set; } = 64;
+        public int MaxLinesPerDensityCell { get; set; } = 8;
+        public float DirectionSimilarityThreshold { get; set; } = 0.98f;
+        public int MaxDirectionalRepresentativesPerCell { get; set; } = 2;
+
         public float SceneRotationXDeg { get; set; } = 0f;
         public float SceneRotationYDeg { get; set; } = 0f;
         public float SceneRotationZDeg { get; set; } = 0f;
@@ -1157,7 +1175,130 @@ namespace OscVisualizer.Services
                     clipped.Add(l);
             }
 
+            if (EnableDenseLineCulling)
+                return CullDenseLines(clipped);
+
             return clipped;
+        }
+
+        private sealed class DensityCellState
+        {
+            public int Count;
+            public List<Vector2> DirectionReps { get; } = new();
+        }
+
+        private List<Line2D> CullDenseLines(List<Line2D> lines)
+        {
+            if (lines.Count == 0)
+                return lines;
+
+            float minLenSq = MinSegmentLength * MinSegmentLength;
+            int cols = Math.Max(1, DensityGridCols);
+            int rows = Math.Max(1, DensityGridRows);
+            int maxPerCell = Math.Max(1, MaxLinesPerDensityCell);
+            int maxDirReps = Math.Max(1, MaxDirectionalRepresentativesPerCell);
+            float dirThreshold = Math.Clamp(DirectionSimilarityThreshold, 0f, 0.999999f);
+
+            var kept = new List<Line2D>(lines.Count);
+            var states = new Dictionary<int, DensityCellState>(Math.Min(lines.Count, cols * rows));
+            int removedByDenseCulling = 0;
+
+            for (int i = 0; i < lines.Count; i++)
+            {
+                var l = lines[i];
+                Vector2 d = l.P1 - l.P0;
+                float lenSq = d.LengthSquared();
+                if (lenSq < minLenSq)
+                {
+                    removedByDenseCulling++;
+                    continue;
+                }
+
+                float len = MathF.Sqrt(lenSq);
+                Vector2 dir = d / len;
+
+                Vector2 m = (l.P0 + l.P1) * 0.5f;
+                int cx = ToDensityCellX(m.X, cols);
+                int cy = ToDensityCellY(m.Y, rows);
+                int key = cy * cols + cx;
+
+                if (!states.TryGetValue(key, out var state))
+                {
+                    state = new DensityCellState();
+                    states[key] = state;
+                }
+
+                if (state.Count < maxPerCell)
+                {
+                    kept.Add(l);
+                    state.Count++;
+                    AddDirectionRepresentative(state.DirectionReps, dir, dirThreshold, maxDirReps);
+                    continue;
+                }
+
+                // すでに密集しているセルでは、既存代表方向とほぼ同じ線分を捨てる
+                bool similar = false;
+                for (int di = 0; di < state.DirectionReps.Count; di++)
+                {
+                    float dot = MathF.Abs(Vector2.Dot(state.DirectionReps[di], dir));
+                    if (dot >= dirThreshold)
+                    {
+                        similar = true;
+                        break;
+                    }
+                }
+
+                if (similar)
+                {
+                    removedByDenseCulling++;
+                    continue;
+                }
+
+                if (state.DirectionReps.Count < maxDirReps)
+                {
+                    kept.Add(l);
+                    state.Count++;
+                    state.DirectionReps.Add(dir);
+                }
+                else
+                {
+                    removedByDenseCulling++;
+                }
+            }
+
+            if (removedByDenseCulling > 0)
+            {
+                Debug.WriteLine($"[HiddenLineRenderer] Dense line culling removed {removedByDenseCulling} segments (input={lines.Count}, output={kept.Count}).");
+            }
+
+            return kept;
+        }
+
+        private static void AddDirectionRepresentative(List<Vector2> reps, Vector2 dir, float threshold, int maxDirReps)
+        {
+            for (int i = 0; i < reps.Count; i++)
+            {
+                float dot = MathF.Abs(Vector2.Dot(reps[i], dir));
+                if (dot >= threshold)
+                    return;
+            }
+
+            if (reps.Count < maxDirReps)
+                reps.Add(dir);
+        }
+
+        private static int ToDensityCellX(float x, int cols)
+        {
+            float u = (x + 1f) * 0.5f;
+            int cx = (int)(u * cols);
+            return Math.Clamp(cx, 0, cols - 1);
+        }
+
+        private static int ToDensityCellY(float y, int rows)
+        {
+            float v = (y + 1f) * 0.5f;
+            int cy = (int)(v * rows);
+            return Math.Clamp(cy, 0, rows - 1);
         }
 
         private Vector3 GetSceneRotationCenter(List<SceneMeshInstance> visibleInstances)

@@ -97,6 +97,7 @@ namespace OscVisualizer.Services
 
             // STLファイルパス（適宜変更）
 
+            StlLoader.MirrorXOnLoad = false;
             var topmodel = StlLoader.Load(@"Assets\NEOGEO LOGO_TOP.stl");
             //bodymodel.NormalizeToUnitCube();
             var topmesh = MeshBuilder.BuildIndexedMesh(topmodel, vertexMergeEpsilon: 5e-5f);
@@ -104,6 +105,7 @@ namespace OscVisualizer.Services
             var bottommodel = StlLoader.Load(@"Assets\NEOGEO LOGO_BOTTOM.stl");
             //lstarmodel.NormalizeToUnitCube();
             var bottommesh = MeshBuilder.BuildIndexedMesh(bottommodel, vertexMergeEpsilon: 5e-5f);
+            StlLoader.MirrorXOnLoad = true;
 
             topScene = new SceneMeshInstance(topmesh)
             {

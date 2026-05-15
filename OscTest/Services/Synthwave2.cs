@@ -310,15 +310,15 @@ namespace OscVisualizer.Services
             {
                 case 0:
                     for (int y = -1; y < 5; y++)
-                        treeLScenes[y + 1].Visible = true;
+                        treeRScenes[y + 1].Visible = true;
                     break;
                 case 1:
                     for (int y = -1; y < 5; y++)
-                        treeLScenes[y + 1].Visible = false;
+                        treeRScenes[y + 1].Visible = false;
                     break;
                 case 2:
                     for (int y = -1; y < 5; y++)
-                        treeLScenes[y + 1].Visible = false;
+                        treeRScenes[y + 1].Visible = false;
                     break;
             }
 
@@ -326,8 +326,8 @@ namespace OscVisualizer.Services
             _renderer.Render(displayDevice);
 
             var pts = new List<XYPoint>(displayDevice.Points);
-            pts.Add(new XYPoint(-1, -1, 0));
-            pts.Add(new XYPoint(1, -1, 0));
+            //pts.Add(new XYPoint(-1, -1, 0));
+            //pts.Add(new XYPoint(1, -1, 0));
             return pts;
         }
 

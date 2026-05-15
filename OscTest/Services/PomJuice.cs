@@ -95,12 +95,14 @@ namespace OscVisualizer.Services
 
             // STLファイルパス（適宜変更）
 
+            StlLoader.MirrorXOnLoad = false;
             var topmodel = StlLoader.Load(@"Assets\POM JUICE.stl");
             var topmesh = MeshBuilder.BuildIndexedMesh(topmodel, vertexMergeEpsilon: 5e-5f,
                 fillAxis: SurfaceFillAxis.Y, fillDensity: 1f);
 
             var bdmodel = StlLoader.Load(@"Assets\POM JUICE_Border.stl");
             var bdmesh = MeshBuilder.BuildIndexedMesh(bdmodel, vertexMergeEpsilon: 5e-5f);
+            StlLoader.MirrorXOnLoad = true;
 
             topScene = new SceneMeshInstance(topmesh);
             var bdScene = new SceneMeshInstance(bdmesh);
