@@ -1086,23 +1086,21 @@ namespace OscVisualizer.Services
                 var triInfo = perInstanceTriInfo[instIndex];
                 var rawProjected = rawProjectedPerInstance[instIndex];
 
-                var localLines = new List<Line2D>(Math.Max(16, inst.RenderEdges.Count / 4));
-                var candidateTriIndices = new List<int>(64);
+                var edges = inst.RenderEdges;
+                var localLines = new List<Line2D>[edges.Count];
 
-                for (int ei = 0; ei < inst.RenderEdges.Count; ei++)
+                Parallel.For(0, edges.Count, ei =>
                 {
-                    var edge = inst.RenderEdges[ei];
+                    var edge = edges[ei];
 
                     if (!IsCandidateEdge(edge, triInfo, inst.DrawBoundaryEdges))
-                        continue;
+                        return;
 
                     Vector3 originalP0 = worldVertices[edge.V0];
                     Vector3 originalP1 = worldVertices[edge.V1];
 
-                    // 両頂点がカメラの後方（Z <= 0）にある場合のみスキップ
-                    // NearZ以下だがZ > 0の場合は後続のClipLineToNearPlaneで処理する
                     if (originalP0.Z <= 0f && originalP1.Z <= 0f)
-                        continue;
+                        return;
 
                     Vector3 p0 = originalP0;
                     Vector3 p1 = originalP1;
@@ -1112,13 +1110,12 @@ namespace OscVisualizer.Services
                     if (clipped)
                     {
                         if (!ClipLineToNearPlane(ref p0, ref p1, NearZ))
-                            continue;
+                            return;
                     }
 
                     Vector2 s0;
                     Vector2 s1;
 
-                    // A: 投影再利用
                     if (!clipped)
                     {
                         s0 = Vector2.Transform(rawProjected[edge.V0], fitTransform);
@@ -1132,7 +1129,8 @@ namespace OscVisualizer.Services
 
                     var seg = CreateSegment(p0, p1, s0, s1);
 
-                    // B: QueryのGC削減版
+                    // スレッドローカルの候補リストを使用
+                    var candidateTriIndices = new List<int>(64);
                     grid.Query(seg.MinX, seg.MinY, seg.MaxX, seg.MaxY, candidateTriIndices);
 
                     var visibleSegments = new List<SceneSegment>(1) { seg };
@@ -1155,17 +1153,25 @@ namespace OscVisualizer.Services
                             break;
                     }
 
+                    var edgeLines = new List<Line2D>(visibleSegments.Count);
                     for (int i = 0; i < visibleSegments.Count; i++)
                     {
                         var v = visibleSegments[i];
                         if ((v.P1_2D - v.P0_2D).LengthSquared() > 1e-12f)
-                        {
-                            localLines.Add(new Line2D(v.P0_2D, v.P1_2D));
-                        }
+                            edgeLines.Add(new Line2D(v.P0_2D, v.P1_2D));
                     }
+
+                    localLines[ei] = edgeLines;
+                });
+
+                var instanceLines = new List<Line2D>(Math.Max(16, edges.Count / 4));
+                for (int ei = 0; ei < localLines.Length; ei++)
+                {
+                    if (localLines[ei] != null)
+                        instanceLines.AddRange(localLines[ei]);
                 }
 
-                allLines[instIndex] = localLines;
+                allLines[instIndex] = instanceLines;
             });
 
             var lines = new List<Line2D>(4096);
