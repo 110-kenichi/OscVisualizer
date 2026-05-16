@@ -1517,56 +1517,51 @@ namespace OscVisualizer.Services
 
             for (int i = 0; i < segments.Count; i++)
             {
-                var parts = SubtractSingleSegmentHiddenByTriangle(segments[i], tri);
-                result.AddRange(parts);
+                SubtractSingleSegmentHiddenByTriangle(segments[i], tri, result);
             }
 
             return result;
         }
 
-        private List<SceneSegment> SubtractSingleSegmentHiddenByTriangle(SceneSegment seg, SceneTriangle tri)
+        private void SubtractSingleSegmentHiddenByTriangle(SceneSegment seg, SceneTriangle tri, List<SceneSegment> visible)
         {
             if (seg.MaxX < tri.MinX || seg.MaxY < tri.MinY || seg.MinX > tri.MaxX || seg.MinY > tri.MaxY)
-                return new List<SceneSegment>(1) { seg };
-
-            List<float> ts = new List<float>(8) { 0f, 1f };
-
-            var triEdges = new[]
             {
-                (tri.S0, tri.S1),
-                (tri.S1, tri.S2),
-                (tri.S2, tri.S0)
-            };
-
-            for (int i = 0; i < triEdges.Length; i++)
-            {
-                if (TryGetLineIntersectionParam(seg.P0_2D, seg.P1_2D, triEdges[i].Item1, triEdges[i].Item2, out float tSeg))
-                {
-                    if (tSeg > Epsilon && tSeg < 1f - Epsilon)
-                        ts.Add(tSeg);
-                }
+                visible.Add(seg);
+                return;
             }
 
-            if (PointInTriangle2D(seg.P0_2D, tri.S0, tri.S1, tri.S2))
-                ts.Add(0f);
-            if (PointInTriangle2D(seg.P1_2D, tri.S0, tri.S1, tri.S2))
-                ts.Add(1f);
+            Span<float> ts = stackalloc float[8];
+            int tCount = 0;
 
-            ts.Sort();
+            TryInsertUniqueSortedT(ts, ref tCount, 0f, Epsilon);
+            TryInsertUniqueSortedT(ts, ref tCount, 1f, Epsilon);
 
-            List<float> uniqueTs = new List<float>(ts.Count);
-            for (int i = 0; i < ts.Count; i++)
+            if (MaybeSegmentIntersectsEdgeBounds(seg, tri.S0, tri.S1) &&
+                TryGetLineIntersectionParam(seg.P0_2D, seg.P1_2D, tri.S0, tri.S1, out float t01))
             {
-                if (uniqueTs.Count == 0 || MathF.Abs(ts[i] - uniqueTs[^1]) > Epsilon)
-                    uniqueTs.Add(ts[i]);
+                if (t01 > Epsilon && t01 < 1f - Epsilon)
+                    TryInsertUniqueSortedT(ts, ref tCount, t01, Epsilon);
             }
 
-            var visible = new List<SceneSegment>(4);
-
-            for (int i = 0; i < uniqueTs.Count - 1; i++)
+            if (MaybeSegmentIntersectsEdgeBounds(seg, tri.S1, tri.S2) &&
+                TryGetLineIntersectionParam(seg.P0_2D, seg.P1_2D, tri.S1, tri.S2, out float t12))
             {
-                float t0 = uniqueTs[i];
-                float t1 = uniqueTs[i + 1];
+                if (t12 > Epsilon && t12 < 1f - Epsilon)
+                    TryInsertUniqueSortedT(ts, ref tCount, t12, Epsilon);
+            }
+
+            if (MaybeSegmentIntersectsEdgeBounds(seg, tri.S2, tri.S0) &&
+                TryGetLineIntersectionParam(seg.P0_2D, seg.P1_2D, tri.S2, tri.S0, out float t20))
+            {
+                if (t20 > Epsilon && t20 < 1f - Epsilon)
+                    TryInsertUniqueSortedT(ts, ref tCount, t20, Epsilon);
+            }
+
+            for (int i = 0; i < tCount - 1; i++)
+            {
+                float t0 = ts[i];
+                float t1 = ts[i + 1];
                 if (t1 - t0 < Epsilon)
                     continue;
 
@@ -1577,14 +1572,12 @@ namespace OscVisualizer.Services
 
                 bool hidden = false;
 
-                if (PointInTriangle2D(pm2, tri.S0, tri.S1, tri.S2))
+                if (TryBarycentric(pm2, tri.S0, tri.S1, tri.S2, out float u, out float v, out float w) &&
+                    u >= -Epsilon && v >= -Epsilon && w >= -Epsilon)
                 {
-                    float zTri = InterpolateTriangleDepthAtScreenPoint(pm2, tri);
-                    if (!float.IsNaN(zTri))
-                    {
-                        if (zTri < pm3.Z - Epsilon)
-                            hidden = true;
-                    }
+                    float zTri = tri.W0.Z * u + tri.W1.Z * v + tri.W2.Z * w;
+                    if (zTri < pm3.Z - Epsilon)
+                        hidden = true;
                 }
 
                 if (!hidden)
@@ -1600,8 +1593,35 @@ namespace OscVisualizer.Services
                     visible.Add(part);
                 }
             }
+        }
 
-            return visible;
+        private static bool MaybeSegmentIntersectsEdgeBounds(in SceneSegment seg, Vector2 a, Vector2 b)
+        {
+            float minX = MathF.Min(a.X, b.X);
+            float maxX = MathF.Max(a.X, b.X);
+            float minY = MathF.Min(a.Y, b.Y);
+            float maxY = MathF.Max(a.Y, b.Y);
+
+            return !(seg.MaxX < minX || seg.MinX > maxX || seg.MaxY < minY || seg.MinY > maxY);
+        }
+
+        private static void TryInsertUniqueSortedT(Span<float> ts, ref int tCount, float t, float epsilon)
+        {
+            for (int i = 0; i < tCount; i++)
+            {
+                if (MathF.Abs(ts[i] - t) <= epsilon)
+                    return;
+            }
+
+            int insertAt = tCount;
+            while (insertAt > 0 && ts[insertAt - 1] > t)
+            {
+                ts[insertAt] = ts[insertAt - 1];
+                insertAt--;
+            }
+
+            ts[insertAt] = t;
+            tCount++;
         }
 
         private float InterpolateTriangleDepthAtScreenPoint(Vector2 p, SceneTriangle tri)
