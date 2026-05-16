@@ -66,6 +66,8 @@ namespace OscVisualizer.Services
 
         private List<SceneMeshInstance> floorScenes = new List<SceneMeshInstance>();
 
+        private List<SceneMeshInstance> edgeScenes = new List<SceneMeshInstance>();
+
         /// <summary>
         /// Initializes a new instance of the TextRender class.
         /// </summary>
@@ -141,16 +143,29 @@ namespace OscVisualizer.Services
 
             var edgeScene1 = new SceneMeshInstance(edgemesh)
             {
-                Translation = new Vector3(0f, -800f, 0f),
+                Translation = new Vector3(0f, -1000f, 0f),
             };
             var edgeScene2 = new SceneMeshInstance(edgemesh)
             {
-                Translation = new Vector3(-200f, -800f, 0f),
+                Translation = new Vector3(-200f, -1000f, 0f),
             };
             var edgeScene3 = new SceneMeshInstance(edgemesh)
             {
-                Translation = new Vector3(200f, -800f, 0f),
+                Translation = new Vector3(200f, -1000f, 0f),
             };
+            var edgeScene4 = new SceneMeshInstance(edgemesh)
+            {
+                Translation = new Vector3(-400f, -1000f, 0f),
+            };
+            var edgeScene5 = new SceneMeshInstance(edgemesh)
+            {
+                Translation = new Vector3(400f, -1000f, 0f),
+            };
+            edgeScenes.Add(edgeScene1);
+            edgeScenes.Add(edgeScene2);
+            edgeScenes.Add(edgeScene3);
+            edgeScenes.Add(edgeScene4);
+            edgeScenes.Add(edgeScene5);
 
             // ===== シーンレンダラ =====
             _renderer = new HiddenLineSilhouetteSceneRenderer
@@ -187,10 +202,8 @@ namespace OscVisualizer.Services
                 _renderer.AddInstance(ws);
             foreach (var fs in floorScenes)
                 _renderer.AddInstance(fs);
-
-            //_renderer.AddInstance(edgeScene1);
-            //_renderer.AddInstance(edgeScene2);
-            //_renderer.AddInstance(edgeScene3);
+            foreach (var fs in edgeScenes)
+                _renderer.AddInstance(fs);
         }
 
         private class DisplayDevice : IVectorDisplayDevice

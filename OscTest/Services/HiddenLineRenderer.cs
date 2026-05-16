@@ -1036,11 +1036,19 @@ namespace OscVisualizer.Services
                 {
                     var tri = inst.Mesh.Triangles[ti];
 
+                    Vector3 w0 = worldVertices[tri.I0];
+                    Vector3 w1 = worldVertices[tri.I1];
+                    Vector3 w2 = worldVertices[tri.I2];
+
+                    // 3頂点すべてがカメラ後方（Z <= 0）のポリゴンは陰線消去対象外
+                    if (w0.Z <= 0f && w1.Z <= 0f && w2.Z <= 0f)
+                        continue;
+
                     var st = new SceneTriangle
                     {
-                        W0 = worldVertices[tri.I0],
-                        W1 = worldVertices[tri.I1],
-                        W2 = worldVertices[tri.I2],
+                        W0 = w0,
+                        W1 = w1,
+                        W2 = w2,
                         S0 = projected[tri.I0],
                         S1 = projected[tri.I1],
                         S2 = projected[tri.I2],
