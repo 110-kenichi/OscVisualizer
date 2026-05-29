@@ -23,6 +23,11 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
+//https://github.com/voich2014/mandel_zoom_abyss/tree/main
+//Mandel Zoom Abyss
+//Author: voich2014 ぼいち
+//MIT License
+
 namespace OscVisualizer.Services
 {
     internal class MandelZoomAbyss : IAudioVisualizer
