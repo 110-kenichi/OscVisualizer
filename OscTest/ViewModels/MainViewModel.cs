@@ -143,6 +143,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         new PictureRender3D(),
         new MegaDrive(),
         new Processing(),
+        new MandelZoomAbyss(),
     ];
 
     [Reactive]
@@ -357,7 +358,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         //var fmt = _capture.WaveFormat;
         _capture.DataAvailable += (s, e) =>
             {
-                _xyProcessor.SetPoints(SelectedVisualizer!.ProcessAudio((WasapiCapture)s!, e));
+                var pts = SelectedVisualizer!.ProcessAudio((WasapiCapture)s!, e);
+                pts = LineOrderingOptimizer.ReorderXYPoints(pts);
+                _xyProcessor.SetPoints(pts);
             };
         _capture?.StartRecording();
     }

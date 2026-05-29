@@ -55,6 +55,7 @@ namespace OscVisualizer.Services
                         case nameof(PictureRender3DViewModel.AppliedThreshold):
                         case nameof(PictureRender3DViewModel.AppliedEpsilon):
                         case nameof(PictureRender3DViewModel.Path):
+                        case nameof(PictureRender3DViewModel.PictureSize):
                             var result = PitcureToVectorXYPoints(settingsViewModel.Path, 1f);
                             if (result.Item1.Count > 1)
                             {
@@ -167,7 +168,7 @@ namespace OscVisualizer.Services
 
             float kick = MathF.Min(IAudioVisualizer.GetBand(spectrum, 50, 100, sampleRate), 10f);
 
-            double scale = 0.25 + kick * 0.125;
+            double scale = 0.50 + kick * 0.05;
 
             var projected = new List<XYPoint>();
             for (int i = 0; i < currentFramePoints.Count; i += 2)
@@ -247,7 +248,7 @@ namespace OscVisualizer.Services
                 {
                     // GIFアニメーション対応
                     var timeDimension = new FrameDimension(FrameDimension.Time.Guid);
-                    
+
                     // フレーム遅延情報を取得
                     try
                     {
@@ -315,7 +316,7 @@ namespace OscVisualizer.Services
         {
             var points = new List<XYPoint>();
 
-            const int targetSize = 256;
+            int targetSize = settingsViewModel.PictureSize;
             float threshold = settingsViewModel.AppliedThreshold;
 
             using var canvas = new Bitmap(targetSize, targetSize);
@@ -648,6 +649,7 @@ namespace OscVisualizer.Services
                         settingsViewModel.ThetaX = loaded.ThetaX;
                         settingsViewModel.ThetaY = loaded.ThetaY;
                         settingsViewModel.ThetaZ = loaded.ThetaZ;
+                        settingsViewModel.PictureSize = loaded.PictureSize;
                     }
                 }
             }

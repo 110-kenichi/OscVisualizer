@@ -11,31 +11,17 @@ using System.Threading;
 
 namespace OscVisualizer.ViewModels
 {
-    internal partial class PictureRender3DViewModel : ViewModelBase, IDisposable
+    internal partial class MandelZoomAbyssViewModel : ViewModelBase, IDisposable
     {
         /// <summary>
         /// </summary>
         /// <remarks></remarks>
         [Reactive]
-        public partial float ThetaX
+        public partial float Rotate
         {
             get;
             set;
-        } = 0f;
-
-        [Reactive]
-        public partial float ThetaY
-        {
-            get;
-            set;
-        } = 0;
-
-        [Reactive]
-        public partial float ThetaZ
-        {
-            get;
-            set;
-        } = 25f;
+        } = -25f;
 
         [Reactive]
         public partial float Threshold
@@ -49,8 +35,7 @@ namespace OscVisualizer.ViewModels
         {
             get;
             set;
-        } = 1.2f;
-
+        } = 5f;
 
         [Reactive]
         public partial int PictureSize
@@ -58,16 +43,6 @@ namespace OscVisualizer.ViewModels
             get;
             set;
         } = 256;
-
-        /// <summary>
-        /// </summary>
-        /// <remarks></remarks>
-        [Reactive]
-        public partial String Path
-        {
-            get;
-            set;
-        } = "Please input displaying picture path here";
 
         // 実際に使用する値（遅延適用後）
         [Reactive]
@@ -82,12 +57,12 @@ namespace OscVisualizer.ViewModels
         {
             get;
             set;
-        } = 1.2f;
+        } = 5f;
 
         private CancellationTokenSource? _updateCts;
         private const int DelayMs = 500; // ドラッグ終了後の遅延時間
 
-        public PictureRender3DViewModel()
+        public MandelZoomAbyssViewModel()
         {
             // Thresholdが変わったときに遅延更新
             this.WhenAnyValue(x => x.Threshold)

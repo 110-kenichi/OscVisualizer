@@ -1,0 +1,63 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+       			 xmlns:vm="clr-namespace:OscVisualizer.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="OscVisualizer.Views.MandelZoomAbyssView">
+  <Design.DataContext>
+    <!-- This only sets the DataContext for the previewer in an IDE,
+		to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
+    <vm:MandelZoomAbyssViewModel/>
+  </Design.DataContext>
+
+  <Grid x:Name="MainGrid"
+        Margin="10"
+        ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10"
+        RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="10">
+
+    <TextBlock Grid.Column="0" Grid.Row="0" VerticalAlignment="Center">θ:</TextBlock>
+    <Slider Grid.Column="1" Grid.Row="0"
+            Minimum="-360" Maximum="360"
+            TickFrequency="1"
+            SmallChange="1"
+            Value="{Binding Rotate, Mode=TwoWay}"
+            IsSnapToTickEnabled="True" />
+    <TextBlock Grid.Column="2" Grid.Row="0"
+               Text="{Binding Rotate}"
+               VerticalAlignment="Center"/>
+
+    <TextBlock Grid.Column="0" Grid.Row="1" VerticalAlignment="Center">Threshold:</TextBlock>
+    <Slider Grid.Column="1" Grid.Row="1"
+            Minimum="0.1" Maximum="0.9"
+            TickFrequency="0.01"
+            SmallChange="0.01"
+            Value="{Binding Threshold, Mode=TwoWay}"
+            IsSnapToTickEnabled="True" />
+    <TextBlock Grid.Column="2" Grid.Row="1"
+               Text="{Binding Threshold}"
+               VerticalAlignment="Center"/>
+
+    <TextBlock Grid.Column="0" Grid.Row="2" VerticalAlignment="Center">RDPε:</TextBlock>
+    <Slider Grid.Column="1" Grid.Row="2"
+            Minimum="0" Maximum="5"
+            TickFrequency="0.01"
+            SmallChange="0.01"
+            Value="{Binding Epsilon, Mode=TwoWay}"
+            IsSnapToTickEnabled="True" />
+    <TextBlock Grid.Column="2" Grid.Row="2"
+               Text="{Binding Epsilon}"
+               VerticalAlignment="Center"/>
+
+    <TextBlock Grid.Column="0" Grid.Row="3" VerticalAlignment="Center">Size:</TextBlock>
+    <Slider Grid.Column="1" Grid.Row="3"
+            Minimum="256" Maximum="1024"
+            TickFrequency="256"
+            SmallChange="256"
+            Value="{Binding PictureSize, Mode=TwoWay}"
+            IsSnapToTickEnabled="True" />
+    <TextBlock Grid.Column="2" Grid.Row="3"
+               Text="{Binding PictureSize}"
+               VerticalAlignment="Center"/>
+  </Grid>
+</UserControl>

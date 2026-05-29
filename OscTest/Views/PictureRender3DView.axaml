@@ -14,7 +14,7 @@
   <Grid x:Name="MainGrid"
         Margin="10"
         ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10"
-        RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="10">
+        RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="10">
 
     <Label Content="Enter picture path to render:" Grid.Column="0" Grid.Row="0"/>
     <Border Background="#F3F4F6" DragDrop.AllowDrop="True" Grid.Row="0" Grid.Column="1">
@@ -85,5 +85,15 @@
                Text="{Binding Epsilon}"
                VerticalAlignment="Center"/>
 
+    <TextBlock Grid.Column="0" Grid.Row="6" VerticalAlignment="Center">Size:</TextBlock>
+    <Slider Grid.Column="1" Grid.Row="6"
+            Minimum="256" Maximum="1024"
+            TickFrequency="256"
+            SmallChange="256"
+            Value="{Binding PictureSize, Mode=TwoWay}"
+            IsSnapToTickEnabled="True" />
+    <TextBlock Grid.Column="2" Grid.Row="6"
+               Text="{Binding PictureSize}"
+               VerticalAlignment="Center"/>
   </Grid>
 </UserControl>

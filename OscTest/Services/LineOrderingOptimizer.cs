@@ -1,4 +1,5 @@
-﻿using System;
+﻿using OscVisualizer.Models;
+using System;
 using System.Collections.Generic;
 using System.Numerics;
 using System.Threading.Tasks;
@@ -7,6 +8,90 @@ namespace OscVisualizer.Services
 {
     public static class LineOrderingOptimizer
     {
+        /// <summary>
+        /// XYPoint ペアリスト（偶数インデックス→奇数インデックスが1線分）を
+        /// オシロスコープの移動距離が最小になるよう並べ替える。
+        /// ペアの向きも必要に応じて反転する。
+        /// </summary>
+        public static List<XYPoint> ReorderXYPoints(
+            List<XYPoint> input,
+            float connectionTolerance = 0.002f,
+            int clusterGridSize = 5,
+            int clusterThreshold = 1000)
+        {
+            int pairCount = input.Count / 2;
+            if (pairCount == 0)
+                return input;
+
+            // XYPoint ペア → Line2D（intensity は P0 側に保存）
+            // Line2D.P0.X,Y = start;  Line2D.P1.X,Y = end
+            // intensity は別配列で保持（P0 インデックスと 1:1 対応）
+            var lines = new List<Line2D>(pairCount);
+            var intensities = new float[pairCount];
+
+            for (int i = 0; i < pairCount; i++)
+            {
+                var p0 = input[i * 2];
+                var p1 = input[i * 2 + 1];
+                lines.Add(new Line2D(
+                    new Vector2((float)p0.X, (float)p0.Y),
+                    new Vector2((float)p1.X, (float)p1.Y)));
+                intensities[i] = (float)((p0.Intensity + p1.Intensity) * 0.5);
+            }
+
+            // 既存の並べ替えアルゴリズムを再利用
+            var reordered = ReorderForVectorDisplay(lines, connectionTolerance, clusterGridSize, clusterThreshold);
+
+            // Line2D → XYPoint ペアに戻す
+            // 並べ替え後の Line2D と元の intensity の対応を取るため
+            // Line2D のハッシュではなく位置で照合する（浮動小数点一致でよい）
+            // intensity は元の線分の値を使う（近傍探索は行わず順序のみ反映）
+            // intensity 対応は以下の簡易方式：reordered の各要素に対して
+            // 元の lines リストから最近傍を O(n) で探す（一度だけ、小n想定）
+            var result = new List<XYPoint>(reordered.Count * 2);
+
+            // O(n²) だが pairCount は通常 ≤数千なので許容範囲
+            bool[] used = new bool[pairCount];
+
+            for (int i = 0; i < reordered.Count; i++)
+            {
+                var rl = reordered[i];
+                float bestDist2 = float.PositiveInfinity;
+                int bestIdx = 0;
+                bool bestReversed = false;
+
+                for (int j = 0; j < pairCount; j++)
+                {
+                    if (used[j]) continue;
+                    var ol = lines[j];
+
+                    float d0 = Vector2.DistanceSquared(rl.P0, ol.P0) + Vector2.DistanceSquared(rl.P1, ol.P1);
+                    float d1 = Vector2.DistanceSquared(rl.P0, ol.P1) + Vector2.DistanceSquared(rl.P1, ol.P0);
+
+                    if (d0 < bestDist2) { bestDist2 = d0; bestIdx = j; bestReversed = false; }
+                    if (d1 < bestDist2) { bestDist2 = d1; bestIdx = j; bestReversed = true; }
+                }
+
+                used[bestIdx] = true;
+                double intensity = intensities[bestIdx];
+                var orig0 = input[bestIdx * 2];
+                var orig1 = input[bestIdx * 2 + 1];
+
+                if (!bestReversed)
+                {
+                    result.Add(new XYPoint(rl.P0.X, rl.P0.Y, orig0.Intensity, orig0.Z));
+                    result.Add(new XYPoint(rl.P1.X, rl.P1.Y, orig1.Intensity, orig1.Z));
+                }
+                else
+                {
+                    result.Add(new XYPoint(rl.P0.X, rl.P0.Y, orig1.Intensity, orig1.Z));
+                    result.Add(new XYPoint(rl.P1.X, rl.P1.Y, orig0.Intensity, orig0.Z));
+                }
+            }
+
+            return result;
+        }
+
         private struct Cluster
         {
             public List<Line2D> Lines;
