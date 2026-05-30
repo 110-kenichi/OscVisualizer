@@ -189,6 +189,9 @@
     <Compile Update="Views\MandelZoomAbyssView.axaml.cs">
       <DependentUpon>MandelZoomAbyssView.axaml</DependentUpon>
     </Compile>
+    <Compile Update="Views\ScreenCaptureView.axaml.cs">
+      <DependentUpon>ScreenCaptureView.axaml</DependentUpon>
+    </Compile>
     <Compile Update="Views\PictureRender3DView.axaml.cs">
       <DependentUpon>PictureRender3DView.axaml</DependentUpon>
     </Compile>

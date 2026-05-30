@@ -66,8 +66,8 @@
     <TextBlock Grid.Column="0" Grid.Row="4" VerticalAlignment="Center">Threshold:</TextBlock>
     <Slider Grid.Column="1" Grid.Row="4"
             Minimum="0.1" Maximum="0.9"
-            TickFrequency="0.01"
-            SmallChange="0.01"
+            TickFrequency="0.05"
+            SmallChange="0.05"
             Value="{Binding Threshold, Mode=TwoWay}"
             IsSnapToTickEnabled="True" />
     <TextBlock Grid.Column="2" Grid.Row="4"
@@ -76,9 +76,9 @@
 
     <TextBlock Grid.Column="0" Grid.Row="5" VerticalAlignment="Center">RDPε:</TextBlock>
     <Slider Grid.Column="1" Grid.Row="5"
-            Minimum="0" Maximum="5"
-            TickFrequency="0.01"
-            SmallChange="0.01"
+            Minimum="0.05" Maximum="10"
+            TickFrequency="0.05"
+            SmallChange="0.05"
             Value="{Binding Epsilon, Mode=TwoWay}"
             IsSnapToTickEnabled="True" />
     <TextBlock Grid.Column="2" Grid.Row="5"

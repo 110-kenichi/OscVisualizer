@@ -423,7 +423,7 @@ namespace OscVisualizer.Services
             if (rawSegments.Count == 0)
                 return points;
 
-            var polylines = BuildPolylines(rawSegments, endpointTolerance: unit * 0.6f);
+            var polylines = BuildPolylines(rawSegments, endpointTolerance: unit * 0.01f);
             float rdpEpsilon = unit * settingsViewModel.AppliedEpsilon;
 
             foreach (var poly in polylines)

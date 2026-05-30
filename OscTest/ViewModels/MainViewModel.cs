@@ -144,6 +144,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         new MegaDrive(),
         new Processing(),
         new MandelZoomAbyss(),
+        new ScreenCapture(),
     ];
 
     [Reactive]

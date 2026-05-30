@@ -257,8 +257,9 @@ namespace OscVisualizer.Services
             // ViewModel パラメータ取得
             int size = Math.Max(64, settingsViewModel.PictureSize);
             float appliedThreshold = settingsViewModel.AppliedThreshold;   // 0.0～1.0：セグメント輝度閾値
-            // _autoEpsilon をユーザー設定値に上乗せしてピクセルスケールに換算
-            float rdpEps = (settingsViewModel.AppliedEpsilon + _autoEpsilon) * (1f / size);
+            // _autoEpsilon をユーザー設定値に上乗せして座標空間 [-1,+1]（幅2.0）にスケーリング
+            // 1ピクセル = 2.0/size なので係数は 2f/size
+            float rdpEps = (settingsViewModel.AppliedEpsilon + _autoEpsilon) * (2f / size);
 
             // グリッドバッファをサイズ変更時に再確保
             int totalPixels = size * size;

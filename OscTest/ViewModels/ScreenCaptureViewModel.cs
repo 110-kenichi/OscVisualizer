@@ -11,31 +11,15 @@ using System.Threading;
 
 namespace OscVisualizer.ViewModels
 {
-    internal partial class PictureRender3DViewModel : ViewModelBase, IDisposable
+    internal partial class ScreenCaptureViewModel : ViewModelBase, IDisposable
     {
-        /// <summary>
-        /// </summary>
-        /// <remarks></remarks>
-        [Reactive]
-        public partial float ThetaX
-        {
-            get;
-            set;
-        } = 0f;
 
         [Reactive]
-        public partial float ThetaY
+        public partial int ScreenNo
         {
             get;
             set;
         } = 0;
-
-        [Reactive]
-        public partial float ThetaZ
-        {
-            get;
-            set;
-        } = 25f;
 
         [Reactive]
         public partial float Threshold
@@ -59,16 +43,6 @@ namespace OscVisualizer.ViewModels
             set;
         } = 256;
 
-        /// <summary>
-        /// </summary>
-        /// <remarks></remarks>
-        [Reactive]
-        public partial String Path
-        {
-            get;
-            set;
-        } = "Please input displaying picture path here";
-
         // 実際に使用する値（遅延適用後）
         [Reactive]
         public partial float AppliedThreshold
@@ -87,7 +61,7 @@ namespace OscVisualizer.ViewModels
         private CancellationTokenSource? _updateCts;
         private const int DelayMs = 500; // ドラッグ終了後の遅延時間
 
-        public PictureRender3DViewModel()
+        public ScreenCaptureViewModel()
         {
             // Thresholdが変わったときに遅延更新
             this.WhenAnyValue(x => x.Threshold)
