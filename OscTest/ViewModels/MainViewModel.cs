@@ -117,6 +117,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     public List<IAudioVisualizer> VisualizerTypes { get; } =
     [
+        new TestPattern(),
         new SpectrumAnalyzer(),
         new BandLevelMeter(),
         new WaveFlow3D(),

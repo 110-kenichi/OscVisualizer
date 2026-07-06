@@ -313,5 +313,33 @@ namespace OscVisualizer.Services
             float projY = lineStart.Y + t * dy;
             return MathF.Sqrt((pt.X - projX) * (pt.X - projX) + (pt.Y - projY) * (pt.Y - projY));
         }
+
+        static XYPoint[] CreateSegment(float x0, float y0, float x1, float y1, float intensity = 1.0f)
+        {
+            List<XYPoint> points = new List<XYPoint>();
+
+            points.Add(new XYPoint(x0, y0, intensity));
+            points.Add(new XYPoint(x1, y1, intensity));
+
+            return points.ToArray();
+        }
+
+        static XYPoint[] CreateCircle(float centerx, float centery, float radius, float intensity = 1.0f, int steps = 10)
+        {
+            List<XYPoint> points = new List<XYPoint>();
+
+            for (int i = 0; i < steps; i++)
+            {
+                float a0 = 2f * MathF.PI * i / steps;
+                float a1 = 2f * MathF.PI * (i + 1) / steps;
+                float x0 = centerx + radius * MathF.Cos(a0);
+                float y0 = centery + radius * MathF.Sin(a0);
+                float x1 = centerx + radius * MathF.Cos(a1);
+                float y1 = centery + radius * MathF.Sin(a1);
+                points.AddRange(CreateSegment(x0, y0, x1, y1, intensity));
+            }
+
+            return points.ToArray();
+        }
     }
 }
