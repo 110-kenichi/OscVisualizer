@@ -117,6 +117,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
     public List<IAudioVisualizer> VisualizerTypes { get; } =
     [
+        new TestSignal(),
         new TestPattern(),
         new SpectrumAnalyzer(),
         new BandLevelMeter(),
@@ -329,10 +330,21 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             //}
 
             ALContextAttributes attrib = new ALContextAttributes();
+            attrib.AdditionalAttributes = new int[]
+            {
+                0x1992, // ALC_HRTF_SOFT
+                0,      // ALC_HRTF_DISABLED_SOFT
+                0
+            };
             _alContext = ALC.CreateContext(_alDevice, attrib);
             ALC.MakeContextCurrent(_alContext);
 
             _alSource = AL.GenSource();
+            // XY モード: 3D パンニングを無効化し、PCM の L/R をそのまま出力する
+            // SourceRelative=true かつ Position=(0,0,0) にすることで定位計算をニュートラルに固定
+            AL.Source(_alSource, ALSourceb.SourceRelative, true);
+            AL.Source(_alSource, ALSource3f.Position, 0.0f, 0.0f, 0.0f);
+            AL.Source(_alSource, ALSourcef.Gain, 1.0f);
             _sampleBufferIds = AL.GenBuffers(8);
 
             var device = new MMDeviceEnumerator().GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
