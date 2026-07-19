@@ -3,6 +3,7 @@ using OscVisualizer.Models;
 using System;
 using System.Buffers;
 using System.Collections.Generic;
+using System.IO.Ports;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -12,8 +13,16 @@ namespace OscVisualizer.Services
     public class XYProcessor
     {
         // OpenAL
-        private readonly int _source;
+        private readonly int? _source;
         private readonly int _outputTargetSampleRate;
+
+        private readonly VectorSerialPort? _serialPort;
+        private bool _serialPointsDirty = false; // SetPoints で新データがセットされたか（Update()用）
+        private long _serialLastSentTick = 0;    // 最後にシリアル送信した時刻
+        // Teensy の REFRESH_RATE=20ms に合わせ、最低でも 20ms に 1 回だけ送信する
+        // （より短い間隔で送ると USB シリアルバッファが溢れてバイト欠落 → 境界ずれが発生する）
+        private static readonly long _serialMinIntervalTicks =
+            (long)(System.Diagnostics.Stopwatch.Frequency * 0.020);
 
         // JS版の状態
         private List<XYPoint> _points = new();
@@ -74,6 +83,25 @@ namespace OscVisualizer.Services
             _delayBufferR = new float[_maxDelaySamples];
         }
 
+        /// <summary>
+        /// Initializes a new instance of the XYProcessor class with the specified data source, sample rate, and frame
+        /// sample size.
+        /// </summary>
+        /// <remarks>The XYProcessor is intended for audio or signal processing scenarios. The
+        /// frameSamples parameter allows for flexibility in processing different frame sizes, which can affect
+        /// performance and analysis granularity.</remarks>
+        /// <param name="source">The identifier for the data source to be processed. Must be a valid source identifier.</param>
+        /// <param name="outputTargetSampleRate">The sample rate, in hertz (Hz), at which the data will be processed. Must be greater than zero.</param>
+        /// <param name="frameSamples">The number of samples per frame. Must be a positive integer. The default value is 1024.</param>
+        public XYProcessor(VectorSerialPort serialPort, int outputTargetSampleRate, int frameSamples = 1024)
+        {
+            _serialPort = serialPort;
+            _outputTargetSampleRate = outputTargetSampleRate;
+            _frameSamples = frameSamples;
+            _delayBufferL = new float[_maxDelaySamples];
+            _delayBufferR = new float[_maxDelaySamples];
+        }
+
         // JS: setPoints + _setupSegments
         /// <summary>
         /// Sets the collection of points to be processed by the instance.
@@ -83,7 +111,8 @@ namespace OscVisualizer.Services
         /// <param name="points">The list of points to set. If null, an empty list is used instead.</param>
         public void SetPoints(List<XYPoint> points)
         {
-            if (_skipNextProcess)
+            // シリアルモードでは _skipNextProcess を使わない（OpenAL バッファ管理専用フラグのため）
+            if (_serialPort == null && _skipNextProcess)
                 return;
 
             _skipNextProcess = true;
@@ -91,6 +120,23 @@ namespace OscVisualizer.Services
             _index = 0;
             _subPos = 0;
             SetupSegments(_points);
+
+            // シリアルモード: レート制限付き即送信。
+            // Teensy の REFRESH_RATE(20ms) より短い間隔で送ると USB バッファが溢れて
+            // バイト欠落 → 4byte 境界ずれ → 画面空白になる。
+            // 前回送信から 20ms 未満ならこのフレームをスキップする（ブロックしない）。
+            if (_serialPort != null)
+            {
+                long now = System.Diagnostics.Stopwatch.GetTimestamp();
+                if (now - _serialLastSentTick >= _serialMinIntervalTicks)
+                {
+                    _serialLastSentTick = now;
+                    SendXYPoints(_serialPort, _points);
+                }
+                return;
+            }
+
+            _serialPointsDirty = true;
         }
 
         /// <summary>
@@ -163,7 +209,7 @@ namespace OscVisualizer.Services
             double t1 = 1.0;
 
             // p, q for each edge: left, right, bottom, top
-            ReadOnlySpan<double> p = [  -dx,    dx,   -dy,    dy];
+            ReadOnlySpan<double> p = [-dx, dx, -dy, dy];
             ReadOnlySpan<double> q = [p0.X + 1, 1 - p0.X, p0.Y + 1, 1 - p0.Y];
 
             for (int i = 0; i < 4; i++)
@@ -219,7 +265,7 @@ namespace OscVisualizer.Services
 
             List<XYPoint> pts = _points;
 
-            int N = pts.Count;
+            int N = _points.Count;
             if (N < 2 || _totalLength <= 0f)
             {
                 // 全部 0
@@ -323,81 +369,143 @@ namespace OscVisualizer.Services
         /// glitches or playback interruptions.</remarks>
         public void Update()
         {
-            AL.GetSource(_source, ALGetSourcei.BuffersProcessed, out int processed);
-
-            while (processed-- > 0)
+            if (_source.HasValue)
             {
-                int buf = AL.SourceUnqueueBuffer(_source);
+                AL.GetSource(_source.Value, ALGetSourcei.BuffersProcessed, out int processed);
 
-                float[] pcm = GenerateXYBuffer();
-
-                int frames = pcm.Length / 2;
-
-                if (PhaseShift > 0)
+                while (processed-- > 0)
                 {
-                    _writePosR = 0;
+                    int buf = AL.SourceUnqueueBuffer(_source.Value);
 
-                    for (int i = 0; i < frames; i++)
+                    float[] pcm = GenerateXYBuffer();
+
+                    int frames = pcm.Length / 2;
+
+                    if (PhaseShift > 0)
                     {
-                        float L = pcm[i * 2];
+                        _writePosR = 0;
 
-                        // 遅延バッファに書き込み
-                        _delayBufferL[_writePosL] = L;
+                        for (int i = 0; i < frames; i++)
+                        {
+                            float L = pcm[i * 2];
 
-                        // 読み出し位置（動的に変化）
-                        int readPos = _writePosL - PhaseShift;
-                        if (readPos < 0)
-                            readPos += _maxDelaySamples;
-                        if (readPos >= _maxDelaySamples)
-                            readPos -= _maxDelaySamples;
+                            // 遅延バッファに書き込み
+                            _delayBufferL[_writePosL] = L;
 
-                        // 遅延された L を取得
-                        float delayedL = _delayBufferL[readPos];
+                            // 読み出し位置（動的に変化）
+                            int readPos = _writePosL - PhaseShift;
+                            if (readPos < 0)
+                                readPos += _maxDelaySamples;
+                            if (readPos >= _maxDelaySamples)
+                                readPos -= _maxDelaySamples;
 
-                        // L を置き換え
-                        pcm[i * 2] = delayedL;
+                            // 遅延された L を取得
+                            float delayedL = _delayBufferL[readPos];
 
-                        // 書き込み位置を進める
-                        _writePosL++;
-                        if (_writePosL >= _maxDelaySamples)
-                            _writePosL = 0;
+                            // L を置き換え
+                            pcm[i * 2] = delayedL;
+
+                            // 書き込み位置を進める
+                            _writePosL++;
+                            if (_writePosL >= _maxDelaySamples)
+                                _writePosL = 0;
+                        }
                     }
-                }
-                else if (PhaseShift < 0)
-                {
-                    _writePosL = 0;
-
-                    for (int i = 0; i < frames; i++)
+                    else if (PhaseShift < 0)
                     {
-                        float R = pcm[i * 2 + 1];
+                        _writePosL = 0;
 
-                        // 遅延バッファに書き込み
-                        _delayBufferR[_writePosR] = R;
+                        for (int i = 0; i < frames; i++)
+                        {
+                            float R = pcm[i * 2 + 1];
 
-                        // 読み出し位置（動的に変化）
-                        int readPos = _writePosR + PhaseShift;
-                        if (readPos < 0)
-                            readPos += _maxDelaySamples;
-                        if (readPos >= _maxDelaySamples)
-                            readPos -= _maxDelaySamples;
+                            // 遅延バッファに書き込み
+                            _delayBufferR[_writePosR] = R;
 
-                        // 遅延された R を取得
-                        float delayedR = _delayBufferR[readPos];
+                            // 読み出し位置（動的に変化）
+                            int readPos = _writePosR + PhaseShift;
+                            if (readPos < 0)
+                                readPos += _maxDelaySamples;
+                            if (readPos >= _maxDelaySamples)
+                                readPos -= _maxDelaySamples;
 
-                        // R を置き換え
-                        pcm[i * 2 + 1] = delayedR;
+                            // 遅延された R を取得
+                            float delayedR = _delayBufferR[readPos];
 
-                        // 書き込み位置を進める
-                        _writePosR++;
-                        if (_writePosR >= _maxDelaySamples)
-                            _writePosR = 0;
+                            // R を置き換え
+                            pcm[i * 2 + 1] = delayedR;
+
+                            // 書き込み位置を進める
+                            _writePosR++;
+                            if (_writePosR >= _maxDelaySamples)
+                                _writePosR = 0;
+                        }
                     }
+
+                    AL.BufferData(buf, ALFormat.StereoFloat32Ext, pcm, _outputTargetSampleRate);
+
+                    AL.SourceQueueBuffer(_source.Value, buf);
                 }
-
-                AL.BufferData(buf, ALFormat.StereoFloat32Ext, pcm, _outputTargetSampleRate);
-
-                AL.SourceQueueBuffer(_source, buf);
             }
+            // シリアルモードは SetPoints() 内で即送信済みのため Update() では何もしない
+        }
+
+
+        // XYPoint の座標 (-1.0 ～ +1.0) を 0～4095 の 12bit 整数に変換して送信
+        // Teensy の MAX_PTS=3000 を超えないよう、1線分 = PenUp+NormalLine の 2コマンドなので
+        // 最大 1500 線分（= points リストの先頭 3000 要素）に制限する。
+        private const int TeensyMaxPoints = 3000;
+        public void SendXYPoints(VectorSerialPort port, List<XYPoint> points)
+        {
+            if (points.Count < 2) return;
+
+            // 1線分 = 2エントリ(p0, p1)、Teensy は 1エントリにつき 1コマンド消費するため
+            // 送信できる最大エントリ数 = TeensyMaxPoints
+            int maxEntries = TeensyMaxPoints - (TeensyMaxPoints % 2); // 偶数に揃える
+            int count = Math.Min(points.Count, maxEntries);
+
+            int prevX2 = -1, prevY2 = -1; // 前回の終点（未送信状態を -1 で表す）
+
+            for (int i = 0; i < count; i += 2)
+            {
+                var p0 = points[i];
+                var p1 = points[i + 1];
+
+                var clipped = ClipSegment(p0, p1);
+
+                if (clipped == null)
+                {
+                    prevX2 = prevY2 = -1; // クリップで除外された場合は連続性をリセット
+                    continue;
+                }
+
+                var (a, b) = clipped.Value;
+
+                int brightness = (int)(points[i].Intensity * 63.0);
+
+                int x1 = ToCoord(a.X);
+                int y1 = ToCoord(a.Y);
+                int x2 = ToCoord(b.X);
+                int y2 = ToCoord(b.Y);
+
+                if (x1 == x2 && y1 == y2)
+                    if (x2 < 4095) x2++;
+                    else x2--;
+
+                // 前回の終点と今回の始点が一致する場合は PenUp 不要
+                if (x1 != prevX2 || y1 != prevY2)
+                    port.SendPenUp(x1, y1, 0);
+
+                port.SendNormalLine(x2, y2, brightness);
+                prevX2 = x2;
+                prevY2 = y2;
+            }
+
+            // FrameEnd: バッファに積まれた全コマンドを一括 Write() で送信する
+            port.SendFrameEnd();
+
+            static int ToCoord(double v) =>
+                (int)Math.Clamp((v + 1.0) * 2047.5, 0.0, 4095.0);
         }
 
         private float[] _delayBufferL;

@@ -15,6 +15,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Ports;
 using System.Linq;
 using System.Numerics;
 using System.Reactive;
@@ -41,6 +42,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     private int[]? _sampleBufferIds;
     private XYProcessor? _xyProcessor;
 
+    private object serialLockObject = new object();
+    private VectorSerialPort? _serialPort;
+
     public ObservableCollection<string> PlaybackDevices { get; } = new();
 
     private string? _selectedDevice;
@@ -53,6 +57,16 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     {
         get => _selectedDevice;
         set => this.RaiseAndSetIfChanged(ref _selectedDevice, value);
+    }
+
+    public ObservableCollection<string> ComPorts { get; } = new();
+
+    private string? _selectedComPort;
+
+    public string? SelectedComPort
+    {
+        get => _selectedComPort;
+        set => this.RaiseAndSetIfChanged(ref _selectedComPort, value);
     }
 
     private double _speedScale = 1.0;
@@ -189,10 +203,16 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                     var state = (ALSourceState)AL.GetSource(_alSource, ALGetSourcei.SourceState);
                     if (state == ALSourceState.Stopped)
                         AL.SourcePlay(_alSource);
+                    _xyProcessor?.Update();
                 }
             }
-
-            _xyProcessor?.Update();
+            lock (serialLockObject)
+            {
+                if (_serialPort != null)
+                {
+                    _xyProcessor?.Update();
+                }
+            }
         }).DisposeWith(_disposables);
 
         this.WhenAnyValue(x => x.InvertX).Subscribe(v =>
@@ -309,74 +329,116 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         if (SelectedDevice == null)
             return;
 
-        lock (alLockObject)
+        if (SelectedDevice != "vst")
         {
-            var dn = FindOpenALDeviceName(SelectedDevice);
-
-            //_alDevice = ALC.OpenDevice(dn);
-            _alDevice = OpenDevice(dn!);
-
-            //// 拡張が使えるかチェック
-            //bool hasFreq = ALC.IsExtensionPresent(_alDevice, "ALC_SOFT_device_clock");
-            //if (hasFreq)
-            //{
-            //    int freq;
-            //    ALC.GetInteger(_alDevice, (AlcGetInteger)0x1007, 1, out freq);
-            //    Console.WriteLine("Device frequency: " + freq);
-            //}
-            //else
-            //{
-            //    Console.WriteLine("Device does not support ALC_SOFT_device_clock");
-            //}
-
-            ALContextAttributes attrib = new ALContextAttributes();
-            attrib.AdditionalAttributes = new int[]
+            lock (alLockObject)
             {
+                var dn = FindOpenALDeviceName(SelectedDevice);
+
+                //_alDevice = ALC.OpenDevice(dn);
+                _alDevice = OpenDevice(dn!);
+
+                //// 拡張が使えるかチェック
+                //bool hasFreq = ALC.IsExtensionPresent(_alDevice, "ALC_SOFT_device_clock");
+                //if (hasFreq)
+                //{
+                //    int freq;
+                //    ALC.GetInteger(_alDevice, (AlcGetInteger)0x1007, 1, out freq);
+                //    Console.WriteLine("Device frequency: " + freq);
+                //}
+                //else
+                //{
+                //    Console.WriteLine("Device does not support ALC_SOFT_device_clock");
+                //}
+
+                ALContextAttributes attrib = new ALContextAttributes();
+                attrib.AdditionalAttributes = new int[]
+                {
                 0x1992, // ALC_HRTF_SOFT
                 0,      // ALC_HRTF_DISABLED_SOFT
                 0
-            };
-            _alContext = ALC.CreateContext(_alDevice, attrib);
-            ALC.MakeContextCurrent(_alContext);
+                };
+                _alContext = ALC.CreateContext(_alDevice, attrib);
+                ALC.MakeContextCurrent(_alContext);
 
-            _alSource = AL.GenSource();
-            // XY モード: 3D パンニングを無効化し、PCM の L/R をそのまま出力する
-            // SourceRelative=true かつ Position=(0,0,0) にすることで定位計算をニュートラルに固定
-            AL.Source(_alSource, ALSourceb.SourceRelative, true);
-            AL.Source(_alSource, ALSource3f.Position, 0.0f, 0.0f, 0.0f);
-            AL.Source(_alSource, ALSourcef.Gain, 1.0f);
-            _sampleBufferIds = AL.GenBuffers(8);
+                _alSource = AL.GenSource();
+                // XY モード: 3D パンニングを無効化し、PCM の L/R をそのまま出力する
+                // SourceRelative=true かつ Position=(0,0,0) にすることで定位計算をニュートラルに固定
+                AL.Source(_alSource, ALSourceb.SourceRelative, true);
+                AL.Source(_alSource, ALSource3f.Position, 0.0f, 0.0f, 0.0f);
+                AL.Source(_alSource, ALSourcef.Gain, 1.0f);
+                _sampleBufferIds = AL.GenBuffers(8);
 
-            var device = new MMDeviceEnumerator().GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
-            _capture = new WasapiLoopbackCapture(device);
-            var mixFormat = device.AudioClient.MixFormat;
-            int sampleRate = mixFormat.SampleRate;
+                var device = new MMDeviceEnumerator().GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+                _capture = new WasapiLoopbackCapture(device);
+                var mixFormat = device.AudioClient.MixFormat;
+                int sampleRate = mixFormat.SampleRate;
 
-            _xyProcessor = new XYProcessor(_alSource, sampleRate, sampleRate / 60);
-            _xyProcessor.SpeedScale = _speedScale;
-            _xyProcessor.PhaseShift = _phaseShift;
-            _xyProcessor.InvertX = InvertX;
-            _xyProcessor.InvertY = InvertY;
+                _xyProcessor = new XYProcessor(_alSource, sampleRate, sampleRate / 60);
+                _xyProcessor.SpeedScale = _speedScale;
+                _xyProcessor.PhaseShift = _phaseShift;
+                _xyProcessor.InvertX = InvertX;
+                _xyProcessor.InvertY = InvertY;
 
-            // 初期バッファを埋める
-            foreach (var b in _sampleBufferIds)
-            {
-                var pcm = _xyProcessor.GenerateXYBuffer();
-                AL.BufferData(b, ALFormat.StereoFloat32Ext, pcm, sampleRate);
-                AL.SourceQueueBuffer(_alSource, b);
+                // 初期バッファを埋める
+                foreach (var b in _sampleBufferIds)
+                {
+                    var pcm = _xyProcessor.GenerateXYBuffer();
+                    AL.BufferData(b, ALFormat.StereoFloat32Ext, pcm, sampleRate);
+                    AL.SourceQueueBuffer(_alSource, b);
+                }
+
+                AL.SourcePlay(_alSource);
+
+                //var fmt = _capture.WaveFormat;
+                _capture.DataAvailable += (s, e) =>
+                {
+                    lock (alLockObject)
+                    {
+                        if (_alSource != 0)
+                        {
+                            var pts = SelectedVisualizer!.ProcessAudio((WasapiCapture)s!, e);
+                            pts = LineOrderingOptimizer.ReorderXYPoints(pts);
+                            _xyProcessor.SetPoints(pts);
+                        }
+                    }
+                };
+                _capture?.StartRecording();
             }
-
-            AL.SourcePlay(_alSource);
         }
-
-        //var fmt = _capture.WaveFormat;
-        _capture.DataAvailable += (s, e) =>
+        else if (SelectedDevice == "vst" && !string.IsNullOrEmpty(SelectedComPort))
+        {
+            lock (serialLockObject)
             {
-                var pts = SelectedVisualizer!.ProcessAudio((WasapiCapture)s!, e);
-                pts = LineOrderingOptimizer.ReorderXYPoints(pts);
-                _xyProcessor.SetPoints(pts);
-            };
-        _capture?.StartRecording();
+                _serialPort = new VectorSerialPort(SelectedComPort);
+
+                var device = new MMDeviceEnumerator().GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+                _capture = new WasapiLoopbackCapture(device);
+                var mixFormat = device.AudioClient.MixFormat;
+                int sampleRate = mixFormat.SampleRate;
+
+                _xyProcessor = new XYProcessor(_serialPort, sampleRate, sampleRate / 60);
+                _xyProcessor.SpeedScale = _speedScale;
+                _xyProcessor.PhaseShift = _phaseShift;
+                _xyProcessor.InvertX = InvertX;
+                _xyProcessor.InvertY = InvertY;
+
+                //var fmt = _capture.WaveFormat;
+                _capture.DataAvailable += (s, e) =>
+                {
+                    lock (serialLockObject)
+                    {
+                        if (_serialPort != null)
+                        {
+                            var pts = SelectedVisualizer!.ProcessAudio((WasapiCapture)s!, e);
+                            pts = LineOrderingOptimizer.ReorderXYPoints(pts);
+                            _xyProcessor.SetPoints(pts);
+                        }
+                    }
+                };
+                _capture?.StartRecording();
+            }
+        }
     }
 
 
@@ -413,12 +475,35 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                 _alDevice = ALDevice.Null;
             }
         }
+
+        lock (serialLockObject)
+        {
+            if (_serialPort != null)
+            {
+                lock (_serialPort)
+                {
+                    _serialPort?.Dispose();
+                    _serialPort = null;
+                }
+            }
+        }
     }
 
     [ReactiveCommand]
     public void UpdateOutputDeviceList()
     {
         PlaybackDevices.Clear();
+
+        PlaybackDevices.Add($"vst");
+
+        ComPorts.Clear();
+        var ports = SerialPort.GetPortNames();
+        foreach (var port in ports)
+        {
+            ComPorts.Add(port);
+        }
+        if (ComPorts.Count > 0)
+            SelectedComPort = ComPorts[0];
 
         int count = WaveOut.DeviceCount;
 
@@ -457,7 +542,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     {
         try
         {
-            var json = JsonSerializer.Serialize(new { SelectedDevice, SpeedScale, PhaseShift, SelectedVisualizer!.VisualizerName, InvertX, InvertY });
+            var json = JsonSerializer.Serialize(new { SelectedDevice, SelectedComPort, SpeedScale, PhaseShift, SelectedVisualizer!.VisualizerName, InvertX, InvertY });
 
             string settingsPath = GetSettingsPath();
 
@@ -489,6 +574,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
             {
                 if (data.SelectedDevice != null && PlaybackDevices.Contains(data.SelectedDevice))
                     SelectedDevice = data.SelectedDevice;
+                if (data.SelectedComPort != null && ComPorts.Contains(data.SelectedComPort))
+                    SelectedComPort = data.SelectedComPort;
                 SpeedScale = data.SpeedScale;
                 PhaseShift = data.PhaseShift;
                 SelectedVisualizer = VisualizerTypes.FirstOrDefault(v => v.VisualizerName == data.VisualizerName) ?? VisualizerTypes[0];
@@ -507,6 +594,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     private class SettingsData
     {
         public string? SelectedDevice { get; set; }
+        public string? SelectedComPort { get; set; }
         public double SpeedScale { get; set; }
         public int PhaseShift { get; set; }
         public string? VisualizerName { get; set; }

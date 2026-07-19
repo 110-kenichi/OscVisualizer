@@ -183,6 +183,7 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+    <PackageReference Include="System.IO.Ports" Version="10.0.10" />
   </ItemGroup>
 
   <ItemGroup>
