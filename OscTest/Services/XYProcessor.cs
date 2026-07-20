@@ -481,7 +481,7 @@ namespace OscVisualizer.Services
 
                 var (a, b) = clipped.Value;
 
-                int brightness = (int)(Math.Clamp(points[i].Intensity * SpeedScale * 31.0, 0.0, 63.0));
+                int brightness = (int)(Math.Clamp(points[i].Intensity * (1 / (2 * SpeedScale)) * 32.0, 0.0, 63.0));
 
                 int x1 = ToCoord(a.X);
                 int y1 = ToCoord(a.Y);
