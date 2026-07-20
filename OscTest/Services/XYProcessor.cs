@@ -496,10 +496,7 @@ namespace OscVisualizer.Services
                 if (x1 != prevX2 || y1 != prevY2)
                     port.SendPenUp(x1, y1);
 
-                if(brightness > 31)
-                    port.SendBrightLine(x2, y2);
-                else
-                    port.SendNormalLine(x2, y2, brightness);
+                port.SendNormalLine(x2, y2, brightness);
                 prevX2 = x2;
                 prevY2 = y2;
             }
