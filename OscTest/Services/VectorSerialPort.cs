@@ -109,16 +109,16 @@ namespace OscVisualizer.Services
         }
 
         /// <summary>PenUp: 描画せずに X,Y へ移動する。</summary>
-        public void SendPenUp(int x, int y, int brightness = 0) =>
-            Send(VectorCommand.PenUp, brightness, x, y);
+        public void SendPenUp(int x, int y) =>
+            Send(VectorCommand.PenUp, 0, x, y);
 
         /// <summary>NormalLine: 通常輝度で X,Y まで線を引く。</summary>
         public void SendNormalLine(int x, int y, int brightness) =>
-            Send(VectorCommand.NormalLine, brightness, x, y);
+            Send(VectorCommand.NormalLine, (int)Math.Clamp(brightness, 0, 63), x, y);
 
         /// <summary>BrightLine: 高輝度で X,Y まで線を引く。</summary>
-        public void SendBrightLine(int x, int y, int brightness = 63) =>
-            Send(VectorCommand.BrightLine, brightness, x, y);
+        public void SendBrightLine(int x, int y) =>
+            Send(VectorCommand.BrightLine, 63, x, y);
 
         /// <summary>
         /// XYPoint リスト（-1.0〜+1.0 座標）を1フレーム分送信し、FrameEnd で締める。
