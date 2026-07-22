@@ -18,11 +18,11 @@ namespace OscVisualizer.Services
 
         private readonly VectorSerialPort? _serialPort;
         private bool _serialPointsDirty = false; // SetPoints で新データがセットされたか（Update()用）
-        private long _serialLastSentTick = 0;    // 最後にシリアル送信した時刻
+        //private long _serialLastSentTick = 0;    // 最後にシリアル送信した時刻
         // Teensy の REFRESH_RATE=20ms に合わせ、最低でも 20ms に 1 回だけ送信する
         // （より短い間隔で送ると USB シリアルバッファが溢れてバイト欠落 → 境界ずれが発生する）
-        private static readonly long _serialMinIntervalTicks =
-            (long)(System.Diagnostics.Stopwatch.Frequency * 0.020);
+        //private static readonly long _serialMinIntervalTicks =
+        //    (long)(System.Diagnostics.Stopwatch.Frequency * 0.020);
 
         // JS版の状態
         private List<XYPoint> _points = new();
@@ -127,10 +127,10 @@ namespace OscVisualizer.Services
             // 前回送信から 20ms 未満ならこのフレームをスキップする（ブロックしない）。
             if (_serialPort != null)
             {
-                long now = System.Diagnostics.Stopwatch.GetTimestamp();
-                if (now - _serialLastSentTick >= _serialMinIntervalTicks)
+                //long now = System.Diagnostics.Stopwatch.GetTimestamp();
+                //if (now - _serialLastSentTick >= _serialMinIntervalTicks)
                 {
-                    _serialLastSentTick = now;
+                    //_serialLastSentTick = now;
                     SendXYPoints(_serialPort, _points);
                 }
                 return;

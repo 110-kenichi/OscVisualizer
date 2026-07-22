@@ -329,7 +329,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         if (SelectedDevice == null)
             return;
 
-        if (SelectedDevice != "vst")
+        if (SelectedDevice != "V.st")
         {
             lock (alLockObject)
             {
@@ -406,7 +406,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                 _capture?.StartRecording();
             }
         }
-        else if (SelectedDevice == "vst" && !string.IsNullOrEmpty(SelectedComPort))
+        else if (SelectedDevice == "V.st" && !string.IsNullOrEmpty(SelectedComPort))
         {
             lock (serialLockObject)
             {
@@ -494,7 +494,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     {
         PlaybackDevices.Clear();
 
-        PlaybackDevices.Add($"vst");
+        PlaybackDevices.Add($"V.st");
 
         ComPorts.Clear();
         var ports = SerialPort.GetPortNames();

@@ -153,7 +153,8 @@ namespace OscVisualizer.Services
             float kick = MathF.Min(IAudioVisualizer.GetBand(spectrum, 50, 100, sampleRate), 10f);
             float snare = MathF.Min(IAudioVisualizer.GetBand(spectrum, 1500, 3000, sampleRate), 2f);
             float hat = MathF.Min(IAudioVisualizer.GetBand(spectrum, 6000, 12000, sampleRate), 2f);
-
+            if (hat <= 0.1)
+                hat = 0.2f;
             double scale = 0.25 + kick * 0.25;
 
             var projected = new List<XYPoint>();
