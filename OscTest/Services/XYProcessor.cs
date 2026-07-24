@@ -454,7 +454,7 @@ namespace OscVisualizer.Services
         // XYPoint の座標 (-1.0 ～ +1.0) を 0～4095 の 12bit 整数に変換して送信
         // Teensy の MAX_PTS=3000 を超えないよう、1線分 = PenUp+NormalLine の 2コマンドなので
         // 最大 1500 線分（= points リストの先頭 3000 要素）に制限する。
-        private const int TeensyMaxPoints = 3000;
+        private const int TeensyMaxPoints = 6000;
         public void SendXYPoints(VectorSerialPort port, List<XYPoint> points)
         {
             if (points.Count < 2) return;
