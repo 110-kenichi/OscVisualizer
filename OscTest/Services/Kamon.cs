@@ -13,6 +13,9 @@ namespace OscVisualizer.Services
         private const double TransitionDurationSeconds = 1.5;
         private const double NormalIntensity = 0.8;
         private const double DimIntensity = 0.25;
+        private const double CoinThickness = 0.18;
+        private const double CoinRimMargin = 0.04;
+        private const double MaximumCoinRadius = 0.90;
 
         private static readonly string[] KamonNames =
         [
@@ -230,8 +233,96 @@ namespace OscVisualizer.Services
                 points = GenerateKamonShape(_currentIndex);
             }
 
-            ApplyAudio3DTransform(points);
-            return points;
+            return CreateCoinProjection(points);
+        }
+
+        private List<XYPoint> CreateCoinProjection(IReadOnlyList<XYPoint> source)
+        {
+            var result = new List<XYPoint>(source.Count + 160);
+            double halfThickness = CoinThickness * (0.85 + Math.Clamp(_beatLevel * 0.3, 0, 0.3)) * 0.5;
+            double radius = 0;
+            for (int i = 0; i < source.Count; i++)
+                radius = Math.Max(radius, Math.Sqrt(source[i].X * source[i].X + source[i].Y * source[i].Y));
+            radius = Math.Min(radius + CoinRimMargin, MaximumCoinRadius / GetCoinScale());
+
+            _ = ProjectPoint(new XYPoint(0, 0), halfThickness, out double frontCenterDepth);
+            _ = ProjectPoint(new XYPoint(0, 0), -halfThickness, out double backCenterDepth);
+            bool frontIsVisible = frontCenterDepth <= backCenterDepth;
+            double visibleDepth = frontIsVisible ? halfThickness : -halfThickness;
+
+            AddCoinRim(result, radius, halfThickness, frontIsVisible);
+
+            for (int i = 0; i + 1 < source.Count; i += 2)
+            {
+                XYPoint start = ProjectPoint(source[i], visibleDepth, out _);
+                XYPoint end = ProjectPoint(source[i + 1], visibleDepth, out _);
+                AddProjectedLine(result, start, end);
+            }
+
+            return result;
+        }
+
+        private void AddCoinRim(List<XYPoint> points, double radius, double halfThickness, bool frontIsVisible)
+        {
+            if (radius <= 0)
+                return;
+
+            const int segmentCount = 64;
+            var front = new XYPoint[segmentCount];
+            var back = new XYPoint[segmentCount];
+            var sideVisible = new bool[segmentCount];
+
+            for (int i = 0; i < segmentCount; i++)
+            {
+                double angle = i * Math.PI * 2 / segmentCount;
+                var rimPoint = new XYPoint(radius * Math.Cos(angle), radius * Math.Sin(angle));
+                front[i] = ProjectPoint(rimPoint, halfThickness, out _);
+                back[i] = ProjectPoint(rimPoint, -halfThickness, out _);
+                sideVisible[i] = IsCoinSideVisible(angle + Math.PI / segmentCount);
+            }
+
+            for (int i = 0; i < segmentCount; i++)
+            {
+                int next = (i + 1) % segmentCount;
+                if (frontIsVisible)
+                    AddProjectedLine(points, front[i], front[next]);
+                else
+                    AddProjectedLine(points, back[i], back[next]);
+            }
+
+            for (int i = 0; i < segmentCount; i++)
+            {
+                int next = (i + 1) % segmentCount;
+                if (sideVisible[i])
+                {
+                    AddProjectedLine(points, front[i], front[next]);
+                    AddProjectedLine(points, back[i], back[next]);
+                    if (i % 4 == 0)
+                        AddProjectedLine(points, front[i], back[i]);
+
+                    if (!sideVisible[(i - 1 + segmentCount) % segmentCount])
+                        AddProjectedLine(points, front[i], back[i]);
+
+                    if (!sideVisible[next])
+                        AddProjectedLine(points, front[next], back[next]);
+                }
+            }
+        }
+
+        private bool IsCoinSideVisible(double angle)
+        {
+            double radialX = Math.Cos(angle);
+            double radialY = Math.Sin(angle);
+            double normalX = radialX * Math.Cos(_rotationY) + radialY * Math.Sin(_rotationX) * Math.Sin(_rotationY);
+            double normalY = radialY * Math.Cos(_rotationX);
+            double normalZ = -radialX * Math.Sin(_rotationY) + radialY * Math.Sin(_rotationX) * Math.Cos(_rotationY);
+            return normalZ < -1e-6;
+        }
+
+        private static void AddProjectedLine(List<XYPoint> points, XYPoint start, XYPoint end)
+        {
+            points.Add(new XYPoint(start.X, start.Y, DimIntensity));
+            points.Add(new XYPoint(end.X, end.Y, end.Intensity));
         }
 
         private void BeginKamonTransition(int targetIndex, double now)
@@ -294,11 +385,9 @@ namespace OscVisualizer.Services
             return result;
         }
 
-        private void ApplyAudio3DTransform(List<XYPoint> points)
+        private XYPoint ProjectPoint(XYPoint point, double depth, out double projectedDepth)
         {
-            double audio = Math.Clamp(_audioLevel * 2.8, 0, 1);
-            double beat = Math.Clamp(_beatLevel * 3.5, 0, 1);
-            double scale = Math.Clamp(0.68 + audio * 0.32 + beat * 1.05, 0.58, 1.95);
+            double scale = GetCoinScale();
 
             double angleX = _rotationX;
             double angleY = _rotationY;
@@ -310,30 +399,36 @@ namespace OscVisualizer.Services
             double cosY = Math.Cos(angleY);
             double sinY = Math.Sin(angleY);
 
-            for (int i = 0; i < points.Count; i++)
-            {
-                XYPoint point = points[i];
-                double x = point.X * scale;
-                double y = point.Y * scale;
-                double z = 0;
+            double x = point.X * scale;
+            double y = point.Y * scale;
+            double z = depth;
 
-                // X軸回転
-                double y1 = y * cosX - z * sinX;
-                double z1 = y * sinX + z * cosX;
+            // X軸回転
+            double y1 = y * cosX - z * sinX;
+            double z1 = y * sinX + z * cosX;
 
-                // Y軸回転
-                double x2 = x * cosY + z1 * sinY;
-                double z2 = -x * sinY + z1 * cosY;
+            // Y軸回転
+            double x2 = x * cosY + z1 * sinY;
+            double z2 = -x * sinY + z1 * cosY;
 
-                // Z軸回転
-                double x3 = x2 * cosZ - y1 * sinZ;
-                double y3 = x2 * sinZ + y1 * cosZ;
+            // Z軸回転
+            double x3 = x2 * cosZ - y1 * sinZ;
+            double y3 = x2 * sinZ + y1 * cosZ;
 
-                // 奥行きによる弱い透視投影
-                double perspective = 1.0 / (1.0 + z2 * 0.18);
-                point.X = Math.Clamp(x3 * perspective, -0.98, 0.98);
-                point.Y = Math.Clamp(y3 * perspective, -0.98, 0.98);
-            }
+            // 奥行きによる弱い透視投影
+            double perspective = 1.0 / (1.0 + z2 * 0.18);
+            projectedDepth = z2;
+            return new XYPoint(
+                Math.Clamp(x3 * perspective, -0.98, 0.98),
+                Math.Clamp(y3 * perspective, -0.98, 0.98),
+                point.Intensity);
+        }
+
+        private double GetCoinScale()
+        {
+            double audio = Math.Clamp(_audioLevel * 2.8, 0, 1);
+            double beat = Math.Clamp(_beatLevel * 3.5, 0, 1);
+            return Math.Clamp(0.68 + audio * 0.32 + beat * 1.05, 0.58, 1.95);
         }
 
         private static void AddRadialLeaf(List<XYPoint> p, double cx, double cy, double angle, double length, double width)
