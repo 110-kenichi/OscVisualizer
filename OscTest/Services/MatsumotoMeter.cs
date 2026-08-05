@@ -35,6 +35,7 @@ namespace OscVisualizer.Services
         private float _level;
         private float _peak;
         private float _needleLevel;
+        private float _needleHatLevel;
         private int _transitionFromMode = -1;
         private int _transitionToMode = -1;
         private double _transitionStart;
@@ -128,10 +129,13 @@ namespace OscVisualizer.Services
 
             _level += (MathF.Min(1f, rms * 4f) - _level) * 0.18f;
             _peak = MathF.Max(peak, _peak * MathF.Pow(0.2f, MathF.Max(0.001f, deltaTime)));
-            float needleTarget = Math.Clamp(_level + Math.Min(1f, kick / 8f), 0f, 1f);
+            float kickTarget = Math.Clamp(kick / 8f, 0f, 1f);
+            float hatTarget = Math.Clamp(hat / 1.5f, 0f, 1f);
+            float needleTarget = Math.Clamp(_level + kickTarget, 0f, 1f);
             float needleRate = needleTarget >= _needleLevel ? 8f : 3.5f;
             float needleSmoothing = 1f - MathF.Exp(-needleRate * Math.Clamp(deltaTime, 0.001f, 0.1f));
             _needleLevel += (needleTarget - _needleLevel) * needleSmoothing;
+            _needleHatLevel += (hatTarget - _needleHatLevel) * needleSmoothing;
 
             if (time >= _nextModeChange)
             {
@@ -171,7 +175,7 @@ namespace OscVisualizer.Services
             List<XYPoint> shape = new();
             switch (mode)
             {
-                case 0: DrawVuMeter(shape, _needleLevel); break;
+                case 0: DrawVuMeter(shape, _needleLevel, _needleHatLevel); break;
                 case 1: DrawWaveformMeter(shape); break;
                 case 2: DrawSonar(shape, time, rms, updateState ? deltaTime : 0); break;
                 default: DrawMysteryMeter(shape, time, kick, snare, hat); break;
@@ -248,17 +252,30 @@ namespace OscVisualizer.Services
                 cx + Math.Cos(angle) * outer, cy + Math.Sin(angle) * outer);
         }
 
-        private static void DrawVuMeter(List<XYPoint> points, float level)
+        private static void DrawVuMeter(List<XYPoint> points, float kickLevel, float hatLevel)
+        {
+            List<XYPoint> inverted = new();
+            DrawVuMeterGeometry(inverted, kickLevel, hatLevel);
+            foreach (XYPoint point in inverted)
+            {
+                point.Y = -point.Y;
+                points.Add(point);
+            }
+        }
+
+        private static void DrawVuMeterGeometry(List<XYPoint> points, float kickLevel, float hatLevel)
         {
             AddDoubleFrame(points, 0, 0, 1.0, 0.87, 64);
             for (int i = 0; i <= 12; i++)
             {
-                double angle = Math.PI * 0.75 + i * Math.PI * 1.5 / 12;
+                double angle = Math.PI * 0.75 + (12 - i) * Math.PI * 1.5 / 12;
                 AddTick(points, 0, 0, angle, 0.76, i % 3 == 0 ? 0.62 : 0.69);
             }
 
-            double needle = Math.PI * 0.75 + Math.Clamp(level, 0f, 1f) * Math.PI * 1.5;
-            AddLine(points, 0, 0, Math.Cos(needle) * 0.70, Math.Sin(needle) * 0.70, 1.0);
+            double kickNeedle = Math.PI * 0.75 + Math.Clamp(kickLevel, 0f, 1f) * Math.PI * 1.5;
+            double hatNeedle = Math.PI * 0.75 + Math.Clamp(hatLevel, 0f, 1f) * Math.PI * 1.5;
+            AddLine(points, 0, 0, Math.Cos(kickNeedle) * 0.70, Math.Sin(kickNeedle) * 0.70, 1.0);
+            AddLine(points, 0, 0, Math.Cos(hatNeedle) * 0.64, Math.Sin(hatNeedle) * 0.64, 0.7);
             AddCircle(points, 0, 0, 0.075, 10, 1.0);
         }
 
@@ -267,15 +284,18 @@ namespace OscVisualizer.Services
             AddDoubleFrame(points, 0, 0, 1.0, 0.87, 64);
             AddLine(points, -0.80, 0, 0.80, 0, 0.3);
             for (int i = 0; i <= 10; i++)
-                AddTick(points, -0.72 + i * 0.144, 0, Math.PI / 2, 0.02, i % 5 == 0 ? 0.14 : 0.084);
+            {
+                double halfLength = i % 5 == 0 ? 0.07 : 0.042;
+                AddTick(points, -0.72 + i * 0.144, 0, Math.PI / 2, -halfLength, halfLength);
+            }
 
             int count = 96;
             for (int i = 0; i < count - 1; i++)
             {
                 double t0 = i / (double)(count - 1);
                 double t1 = (i + 1) / (double)(count - 1);
-                double y0 = SampleWave(t0) * 0.58;
-                double y1 = SampleWave(t1) * 0.58;
+                double y0 = SampleWave(t0) * 1.58;
+                double y1 = SampleWave(t1) * 1.58;
                 AddLine(points, -0.82 + t0 * 1.64, y0, -0.82 + t1 * 1.64, y1, 0.9);
             }
         }
@@ -310,14 +330,14 @@ namespace OscVisualizer.Services
             }
 
             if (deltaTime > 0)
-                UpdateSonarEchoes(sweep, rms, deltaTime);
+                UpdateSonarEchoes(sweep, halfWidth, rms, deltaTime);
             foreach (SonarEcho echo in _sonarEchoes)
             {
                 DrawSonarEcho(points, echo);
             }
         }
 
-        private void UpdateSonarEchoes(double sweep, float rms, float deltaTime)
+        private void UpdateSonarEchoes(double sweep, double halfWidth, float rms, float deltaTime)
         {
             double dt = Math.Clamp(deltaTime, 0.001f, 0.1f);
             _sonarSpawnCooldown = Math.Max(0, _sonarSpawnCooldown - dt);
@@ -329,11 +349,13 @@ namespace OscVisualizer.Services
                     _sonarEchoes.RemoveAt(i);
             }
 
-            if (rms < 0.012f || _sonarSpawnCooldown > 0 || _sonarEchoes.Count >= 8)
+            if (rms < 0.004f || _sonarSpawnCooldown > 0 || _sonarEchoes.Count >= 8)
                 return;
 
-            _sonarSpawnCooldown = 0.18 + _random.NextDouble() * 0.28;
-            double angle = sweep + (_random.NextDouble() - 0.5) * 0.18;
+            _sonarSpawnCooldown = 0.06 + _random.NextDouble() * 0.12;
+            // エコーは扇形の最初のレーダー線が通過した位置で検出する。
+            // sweep - halfWidth は扇形の最後の線側になるため、先端側を使用する。
+            double angle = sweep + halfWidth;
             double radius = 0.18 + _random.NextDouble() * 0.48;
             _sonarEchoes.Add(new SonarEcho
             {
