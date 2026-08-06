@@ -216,7 +216,7 @@ namespace OscVisualizer.Services
             AddCircle(points, cx, cy, outerRadius, count, 0.85);
             AddCircle(points, cx, cy, innerRadius, count, 0.65);
 
-            int rimSpacing = Math.Max(1, count / 16);
+            int rimSpacing = Math.Max(1, count / 32);
             for (int i = 0; i < count; i += rimSpacing)
             {
                 double angle = i * Math.PI * 2 / count;
@@ -266,6 +266,9 @@ namespace OscVisualizer.Services
         private static void DrawVuMeterGeometry(List<XYPoint> points, float kickLevel, float hatLevel)
         {
             AddDoubleFrame(points, 0, 0, 1.0, 0.87, 64);
+            //AddCircle(points, 0, 0, 0.61, 24, 0.38);
+            AddCircle(points, 0, 0, 0.30, 16, 0.1);
+
             for (int i = 0; i <= 12; i++)
             {
                 double angle = Math.PI * 0.75 + (12 - i) * Math.PI * 1.5 / 12;
@@ -282,11 +285,11 @@ namespace OscVisualizer.Services
         private void DrawWaveformMeter(List<XYPoint> points)
         {
             AddDoubleFrame(points, 0, 0, 1.0, 0.87, 64);
-            AddLine(points, -0.80, 0, 0.80, 0, 0.3);
+            AddLine(points, 0, -0.80, 0, 0.80, 0.3);
             for (int i = 0; i <= 10; i++)
             {
                 double halfLength = i % 5 == 0 ? 0.07 : 0.042;
-                AddTick(points, -0.72 + i * 0.144, 0, Math.PI / 2, -halfLength, halfLength);
+                AddTick(points, 0, -0.72 + i * 0.144, Math.PI, -halfLength, halfLength);
             }
 
             int count = 96;
@@ -312,8 +315,15 @@ namespace OscVisualizer.Services
         private void DrawSonar(List<XYPoint> points, double time, float rms, float deltaTime)
         {
             AddDoubleFrame(points, 0, 0, 1.0, 0.87, 64);
-            AddCircle(points, 0, 0, 0.61, 48, 0.38);
-            AddCircle(points, 0, 0, 0.30, 32, 0.38);
+            //AddCircle(points, 0, 0, 0.61, 24, 0.38);
+            //AddCircle(points, 0, 0, 0.30, 16, 0.38);
+            //AddLine(points, -0.80, 0, 0.80, 0, 0.3);
+            for (int i = 0; i <= 10; i++)
+            {
+                double halfLength = i % 5 == 0 ? 0.07 : 0.042;
+                AddTick(points, -0.72 + i * 0.144, 0, Math.PI / 2, -halfLength, halfLength);
+                AddTick(points, 0, -0.72 + i * 0.144, Math.PI, -halfLength, halfLength);
+            }
 
             double sweep = time * 2.4;
             double halfWidth = 0.46;
