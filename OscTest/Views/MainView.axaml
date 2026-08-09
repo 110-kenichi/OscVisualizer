@@ -74,6 +74,7 @@
                 SelectedItem="{Binding SelectedVisualizer}"
                 DisplayMemberBinding="{Binding VisualizerName}"
                  HorizontalAlignment="Stretch"/>
+      <CheckBox Content="Random" Grid.Column="2" Grid.Row="4"  IsChecked="{Binding IsRandomVisualizer}" />
     </Grid>
 
     <Grid ColumnDefinitions="Auto,Auto" HorizontalAlignment="Center" Grid.Row="2" Margin="0 0 0 10" >

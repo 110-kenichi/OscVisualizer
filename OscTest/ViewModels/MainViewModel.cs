@@ -1,5 +1,6 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Threading;
 using MathNet.Numerics;
 using MathNet.Numerics.IntegralTransforms;
 using NAudio.CoreAudioApi;
@@ -41,6 +42,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     private ALContext _alContext;
     private int[]? _sampleBufferIds;
     private XYProcessor? _xyProcessor;
+    private readonly Random _randomVisualizer = new();
 
     private object serialLockObject = new object();
     private VectorSerialPort? _serialPort;
@@ -180,6 +182,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         get;
     }
 
+    public Boolean IsRandomVisualizer { get; set; } = false;
+
     /// <summary>
     /// Initializes a new instance of the MainViewModel class, setting up audio processing and playback using default
     /// parameters.
@@ -215,6 +219,24 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                     _xyProcessor?.Update();
                 }
             }
+        }).DisposeWith(_disposables);
+
+        Observable.Interval(TimeSpan.FromSeconds(30)).Subscribe(_ =>
+        {
+            if (!IsRandomVisualizer || VisualizerTypes.Count <= 3)
+                return;
+
+            int firstSelectable = 2;
+            int lastSelectable = VisualizerTypes.Count - 2;
+            int selectedIndex = VisualizerTypes.IndexOf(SelectedVisualizer!);
+            int nextIndex;
+            do
+            {
+                nextIndex = _randomVisualizer.Next(firstSelectable, lastSelectable + 1);
+            }
+            while (nextIndex == selectedIndex && lastSelectable > firstSelectable);
+
+            Dispatcher.UIThread.Post(() => SelectedVisualizer = VisualizerTypes[nextIndex]);
         }).DisposeWith(_disposables);
 
         this.WhenAnyValue(x => x.InvertX).Subscribe(v =>

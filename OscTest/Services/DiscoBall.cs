@@ -246,7 +246,7 @@ namespace OscVisualizer.Services
             float mag = spectrum[bandIdx];
 
             float brightness = mag * depthFactor * p.FrontBoost;
-            brightness = Math.Clamp(brightness, 0.1f, 3f);
+            brightness = Math.Clamp(brightness, 0.1f, 2f);
 
             //if (brightness <= 0.01f)
             //    return;
