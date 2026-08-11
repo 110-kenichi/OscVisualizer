@@ -566,7 +566,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     {
         try
         {
-            var json = JsonSerializer.Serialize(new { SelectedDevice, SelectedComPort, SpeedScale, PhaseShift, SelectedVisualizer!.VisualizerName, InvertX, InvertY });
+            var json = JsonSerializer.Serialize(new { SelectedDevice, SelectedComPort, SpeedScale, PhaseShift, SelectedVisualizer!.VisualizerName, InvertX, InvertY, IsRandomVisualizer });
 
             string settingsPath = GetSettingsPath();
 
@@ -605,6 +605,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                 SelectedVisualizer = VisualizerTypes.FirstOrDefault(v => v.VisualizerName == data.VisualizerName) ?? VisualizerTypes[0];
                 InvertX = data.InvertX;
                 InvertY = data.InvertY;
+                IsRandomVisualizer = data.IsRandomVisualizer;
             }
         }
         catch
@@ -624,6 +625,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         public string? VisualizerName { get; set; }
         public bool InvertX { get; set; }
         public bool InvertY { get; set; }
+        public bool IsRandomVisualizer { get; set; }
     }
 
 }
