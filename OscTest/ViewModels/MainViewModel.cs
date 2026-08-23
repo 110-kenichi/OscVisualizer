@@ -164,6 +164,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         new MandelZoomAbyss(),
         new Kamon(),
         new MatsumotoMeter(),
+        new Tunder(),
         new ScreenCapture(),
     ];
 
