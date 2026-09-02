@@ -131,6 +131,12 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     [Reactive]
     public partial bool InvertY { get; set; }
 
+    /// <summary>
+    /// 
+    /// </summary>
+    [Reactive]
+    public partial bool EnableZAxis { get; set; }
+
     public List<IAudioVisualizer> VisualizerTypes { get; } =
     [
         new TestSignal(),
@@ -249,6 +255,11 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         {
             if (_xyProcessor != null)
                 _xyProcessor.InvertY = v;
+        }).DisposeWith(_disposables);
+        this.WhenAnyValue(x => x.EnableZAxis).Subscribe(v =>
+        {
+            if (_xyProcessor != null)
+                _xyProcessor.EnableZAxis = v;
         }).DisposeWith(_disposables);
         this.WhenAnyValue(x => x.SelectedVisualizer).Subscribe(v =>
         {
@@ -404,6 +415,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                 _xyProcessor.PhaseShift = _phaseShift;
                 _xyProcessor.InvertX = InvertX;
                 _xyProcessor.InvertY = InvertY;
+                _xyProcessor.EnableZAxis = EnableZAxis;
 
                 // 初期バッファを埋める
                 foreach (var b in _sampleBufferIds)
@@ -447,6 +459,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                 _xyProcessor.PhaseShift = _phaseShift;
                 _xyProcessor.InvertX = InvertX;
                 _xyProcessor.InvertY = InvertY;
+                _xyProcessor.EnableZAxis = EnableZAxis;
 
                 //var fmt = _capture.WaveFormat;
                 _capture.DataAvailable += (s, e) =>
@@ -567,7 +580,11 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     {
         try
         {
-            var json = JsonSerializer.Serialize(new { SelectedDevice, SelectedComPort, SpeedScale, PhaseShift, SelectedVisualizer!.VisualizerName, InvertX, InvertY, IsRandomVisualizer });
+            var json = JsonSerializer.Serialize(new {
+                SelectedDevice, SelectedComPort, SpeedScale, PhaseShift,
+                SelectedVisualizer!.VisualizerName,
+                InvertX, InvertY, EnableZAxis,
+                IsRandomVisualizer });
 
             string settingsPath = GetSettingsPath();
 
@@ -606,6 +623,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
                 SelectedVisualizer = VisualizerTypes.FirstOrDefault(v => v.VisualizerName == data.VisualizerName) ?? VisualizerTypes[0];
                 InvertX = data.InvertX;
                 InvertY = data.InvertY;
+                EnableZAxis = data.EnableZAxis;
                 IsRandomVisualizer = data.IsRandomVisualizer;
             }
         }
@@ -626,6 +644,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         public string? VisualizerName { get; set; }
         public bool InvertX { get; set; }
         public bool InvertY { get; set; }
+        public bool EnableZAxis { get; set; }
         public bool IsRandomVisualizer { get; set; }
     }
 

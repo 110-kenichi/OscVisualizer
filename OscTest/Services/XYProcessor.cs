@@ -57,6 +57,8 @@ namespace OscVisualizer.Services
 
         public bool InvertY { get; set; } = false;
 
+        public bool EnableZAxis { get; set; } = false;
+
         public void SetMinSamplesPerSegment(int v) => _minSamplesPerSegment = Math.Max(1, v);
 
         private bool _skipNextProcess = false;
@@ -482,6 +484,8 @@ namespace OscVisualizer.Services
                 var (a, b) = clipped.Value;
 
                 int brightness = (int)(Math.Clamp(points[i].Intensity * (1 / (2 * SpeedScale)) * 32.0, 0.0, 63.0));
+                if (EnableZAxis)
+                    brightness = (int)(Math.Clamp(1 / SpeedScale * 16, 0.0, 63.0));
 
                 int x1 = ToCoord(a.X);
                 int y1 = ToCoord(a.Y);
@@ -497,6 +501,7 @@ namespace OscVisualizer.Services
                     port.SendPenUp(x1, y1);
 
                 port.SendNormalLine(x2, y2, brightness);
+
                 prevX2 = x2;
                 prevY2 = y2;
             }

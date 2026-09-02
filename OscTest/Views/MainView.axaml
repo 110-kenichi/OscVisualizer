@@ -64,10 +64,11 @@
 
         <CheckBox Content="Invert X" IsChecked="{Binding InvertX}" />
         <CheckBox Content="Invert Y" IsChecked="{Binding InvertY}" />
+        <CheckBox Content="Enable Z-Axis" IsChecked="{Binding EnableZAxis}" />
 
       </StackPanel>
 
-      <TextBlock Grid.Column="0" Grid.Row="4"
+      <TextBlock Grid.Column="0" Grid.Row="4" 
                  VerticalAlignment="Center">Visualizer Type:</TextBlock>
       <ComboBox  Grid.Column="1" Grid.Row="4"
                  ItemsSource="{Binding VisualizerTypes}"

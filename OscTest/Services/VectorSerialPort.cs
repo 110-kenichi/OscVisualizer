@@ -11,10 +11,8 @@ namespace OscVisualizer.Services
 
     public enum VectorCommand : byte
     {
-        FrameEnd   = 0b00,  // 00: flag==0 → バッファスワップ（フレーム終端）。Teensy は rx_points を num_points に切り替える
-        PenUp      = 0b01,  // 01: pen up → X,Y へ移動（描画なし）
-        NormalLine = 0b10,  // 10: 通常輝度ラインを X,Y へ描画
-        BrightLine = 0b11,  // 11: 高輝度ラインを X,Y へ描画
+        FrameEnd = 0b00,  // 00: flag==0 → バッファスワップ（フレーム終端）。Teensy は rx_points を num_points に切り替える
+        NormalLine = 0b01,  // 01: 通常輝度ラインを X,Y へ描画
     }
 
     public class VectorSerialPort : IDisposable
@@ -52,9 +50,9 @@ namespace OscVisualizer.Services
             x = Math.Clamp(x, 0, 4095);
             y = Math.Clamp(y, 0, 4095);
 
-            uint word = ((uint)cmd        << 30)
+            uint word = ((uint)cmd << 30)
                       | ((uint)brightness << 24)
-                      | ((uint)x          << 12)
+                      | ((uint)x << 12)
                       | ((uint)y);
 
             // フレームバッファに豌める（Write() は FlushFrame() でまとめて行う）
@@ -62,7 +60,7 @@ namespace OscVisualizer.Services
             {
                 _frameBuffer[_frameBufferLen++] = (byte)(word >> 24);
                 _frameBuffer[_frameBufferLen++] = (byte)(word >> 16);
-                _frameBuffer[_frameBufferLen++] = (byte)(word >>  8);
+                _frameBuffer[_frameBufferLen++] = (byte)(word >> 8);
                 _frameBuffer[_frameBufferLen++] = (byte)(word);
             }
         }
@@ -108,17 +106,13 @@ namespace OscVisualizer.Services
             FlushFrame(); // フレーム内の全コマンドをまとめて1回のWrite()で送信
         }
 
-        /// <summary>PenUp: 描画せずに X,Y へ移動する。</summary>
+        /// <summary>描画せずに X,Y へ移動する。</summary>
         public void SendPenUp(int x, int y) =>
-            Send(VectorCommand.PenUp, 0, x, y);
+            Send(VectorCommand.NormalLine, 0, x, y);
 
-        /// <summary>NormalLine: 通常輝度で X,Y まで線を引く。</summary>
+        /// <summary>通常輝度で X,Y まで線を引く。</summary>
         public void SendNormalLine(int x, int y, int brightness) =>
             Send(VectorCommand.NormalLine, (int)Math.Clamp(brightness, 0, 63), x, y);
-
-        /// <summary>BrightLine: 高輝度で X,Y まで線を引く。</summary>
-        public void SendBrightLine(int x, int y) =>
-            Send(VectorCommand.BrightLine, 63, x, y);
 
         /// <summary>
         /// XYPoint リスト（-1.0〜+1.0 座標）を1フレーム分送信し、FrameEnd で締める。
