@@ -36,7 +36,10 @@ namespace OscVisualizer.Services
         private enum LaserPattern
         {
             Horizontal,
-            Rotating
+            Rotating,
+            Cone,
+            Wave,
+            Scissor
         }
 
         public string VisualizerName
@@ -122,6 +125,15 @@ namespace OscVisualizer.Services
                 case LaserPattern.Rotating:
                     DrawRotatingLasers(seg, time, kick, hat);
                     break;
+                case LaserPattern.Cone:
+                    DrawConeLasers(seg, time, kick, hat);
+                    break;
+                case LaserPattern.Wave:
+                    DrawWaveLasers(seg, time, kick, snare);
+                    break;
+                case LaserPattern.Scissor:
+                    DrawScissorLasers(seg, time, kick, snare);
+                    break;
             }
 
             return seg;
@@ -158,6 +170,63 @@ namespace OscVisualizer.Services
                 {
                     float yaw = (beam - 3.5f) * beamSpacing;
                     RenderRotatedLaser(seg, yaw, rotation, origin.X, origin.Y);
+                }
+            }
+        }
+
+        private void DrawConeLasers(List<XYPoint> seg, float time, float kick, float hat)
+        {
+            float radius = 10f + kick * 0.4f;
+            for (int i = 0; i < LaserOrigins.Length; i++)
+            {
+                Vector2 origin = LaserOrigins[i];
+                float direction = origin.X < 0f ? -1f : 1f;
+                float phase = time * 1.8f * direction + i * 0.4f;
+                float centerYaw = -origin.X * 18f + MathF.Sin(time * 0.6f) * 6f;
+                for (int beam = 0; beam < 8; beam++)
+                {
+                    float angle = phase + beam * MathF.PI / 4f;
+                    float yaw = centerYaw + MathF.Cos(angle) * radius;
+                    float pitch = -5f + MathF.Sin(angle) * radius * (0.6f + hat * 0.15f);
+                    RenderLaser(seg, yaw, pitch, 0f, origin.X, origin.Y);
+                }
+            }
+        }
+
+        private void DrawWaveLasers(List<XYPoint> seg, float time, float kick, float snare)
+        {
+            float amplitude = 5f + snare * 4f;
+            float width = 24f + kick * 0.5f;
+            for (int i = 0; i < LaserOrigins.Length; i++)
+            {
+                Vector2 origin = LaserOrigins[i];
+                for (int beam = 0; beam < 8; beam++)
+                {
+                    float position = beam / 7f;
+                    float phase = position * MathF.PI * 2f + origin.X * 4f - time * 2.5f;
+                    float yaw = -origin.X * 12f + (position - 0.5f) * width;
+                    float pitch = -5f + MathF.Sin(phase) * amplitude;
+                    RenderLaser(seg, yaw, pitch, 0f, origin.X, origin.Y);
+                }
+            }
+        }
+
+        private void DrawScissorLasers(List<XYPoint> seg, float time, float kick, float snare)
+        {
+            float sweep = MathF.Sin(time * 1.7f);
+            float spread = 10f + kick * 0.5f;
+            for (int i = 0; i < LaserOrigins.Length; i++)
+            {
+                Vector2 origin = LaserOrigins[i];
+                float side = origin.X == 0f
+                    ? (origin.Y < 0f ? -1f : 1f)
+                    : MathF.Sign(origin.X);
+                for (int beam = 0; beam < 8; beam++)
+                {
+                    float offset = (beam / 7f - 0.5f) * spread;
+                    float yaw = -side * (12f + sweep * 16f) + offset;
+                    float pitch = -4f + side * sweep * (6f + snare * 3f) + offset * side * 0.45f;
+                    RenderLaser(seg, yaw, pitch, 0f, origin.X, origin.Y);
                 }
             }
         }
