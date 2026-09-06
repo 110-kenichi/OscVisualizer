@@ -28,6 +28,16 @@ namespace OscVisualizer.Services
         }
 
         private readonly Stopwatch _sw = Stopwatch.StartNew();
+        private readonly Random _random = new();
+
+        private LaserPattern _pattern = LaserPattern.Horizontal;
+        private float _nextPatternChange = 7f;
+
+        private enum LaserPattern
+        {
+            Horizontal,
+            Rotating
+        }
 
         public string VisualizerName
         {
@@ -89,27 +99,97 @@ namespace OscVisualizer.Services
             snare = MathF.Min(snare, 2f);
             hat = MathF.Min(hat, 1.5f);
 
-            List<XYPoint> seg = new();
-            float laserN = 8f;
-            float laserDeg = 30f;
+            if (time >= _nextPatternChange)
+            {
+                LaserPattern next;
+                do
+                {
+                    next = (LaserPattern)_random.Next(0, Enum.GetValues<LaserPattern>().Length);
+                }
+                while (next == _pattern);
 
-            DrawLasers(kick, seg, laserN, laserDeg, 0f, -0.25f);
-            DrawLasers(kick, seg, laserN, laserDeg, -0.25f, -0.25f);
-            DrawLasers(kick, seg, laserN, laserDeg, 0.25f, -0.25f);
-            DrawLasers(kick, seg, laserN, laserDeg, -0.5f, -0.25f);
-            DrawLasers(kick, seg, laserN, laserDeg, 0.5f, -0.25f);
+                _pattern = next;
+                _nextPatternChange = time + 6f + _random.NextSingle() * 4f;
+            }
 
-            DrawLasers(kick, seg, laserN, laserDeg, 0, 0.1f);
-            DrawLasers(kick, seg, laserN, laserDeg, -0.3f, 0.1f);
-            DrawLasers(kick, seg, laserN, laserDeg, 0.3f, 0.1f);
+            List<XYPoint> seg = new(144);
+            //_pattern = LaserPattern.Rotating;
+            switch (_pattern)
+            {
+                case LaserPattern.Horizontal:
+                    DrawHorizontalLasers(seg, time, kick, snare);
+                    break;
+                case LaserPattern.Rotating:
+                    DrawRotatingLasers(seg, time, kick, hat);
+                    break;
+            }
 
             return seg;
         }
 
-        private void DrawLasers(float kick, List<XYPoint> seg, float laserN, float laserDeg, float cx, float cy)
+        private static readonly Vector2[] LaserOrigins =
         {
-            for (int i = 0; i <= laserN; i++)
-                RenderLaser(seg, -(laserDeg / 2f) + ((laserDeg * i) / laserN), -kick, 0, cx, cy);
+            new(0f, -0.25f), new(-0.25f, -0.25f), new(0.25f, -0.25f),
+            new(-0.5f, -0.25f), new(0.5f, -0.25f), new(0f, 0.1f),
+            new(-0.3f, 0.1f), new(0.3f, 0.1f)
+        };
+
+        private void DrawHorizontalLasers(List<XYPoint> seg, float time, float kick, float snare)
+        {
+            for (int i = 0; i < LaserOrigins.Length; i++)
+            {
+                Vector2 origin = LaserOrigins[i];
+                float phase = time * (0.8f + 0.15f) + 0.8f;
+                float pitch = -kick + MathF.Sin(phase) * 3f;
+                DrawYawFan(seg, origin.X, origin.Y, MathF.Sin(phase * 0.5f) * 18f, pitch, 8, 15f);
+            }
+        }
+
+        private void DrawRotatingLasers(List<XYPoint> seg, float time, float kick, float hat)
+        {
+            float rotation = ToRadians(time * 55f * 4);
+            float beamSpacing = 1.5f + MathF.Min(kick, 10f) * 0.3f;
+
+            for (int i = 0; i < LaserOrigins.Length; i++)
+            {
+                Vector2 origin = LaserOrigins[i];
+
+                for (int beam = 0; beam < 8; beam++)
+                {
+                    float yaw = (beam - 3.5f) * beamSpacing;
+                    RenderRotatedLaser(seg, yaw, rotation, origin.X, origin.Y);
+                }
+            }
+        }
+
+        private void DrawYawFan(List<XYPoint> seg, float cx, float cy, float centerYaw, float pitch, int count, float width)
+        {
+            DrawYawFan(seg, cx, cy, centerYaw, pitch, 0f, count, width);
+        }
+
+        private void DrawYawFan(List<XYPoint> seg, float cx, float cy, float centerYaw, float pitch, float roll, int count, float width)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                float yaw = centerYaw - width / 2f + width * i / (count - 1);
+                RenderLaser(seg, yaw, pitch, roll, cx, cy);
+            }
+        }
+
+        private void RenderRotatedLaser(List<XYPoint> seg, float yawDeg, float rotation, float cx, float cy)
+        {
+            Matrix4x4 world =
+                Matrix4x4.CreateRotationY(ToRadians(yawDeg)) *
+                Matrix4x4.CreateRotationZ(rotation) *
+                Matrix4x4.CreateTranslation(cx, cy, 0f);
+            Vector2 start = ProjectToXY(Vector3.Transform(Vector3.Zero, world), Perspective);
+            Vector2 end = ProjectToXY(Vector3.Transform(new Vector3(0f, 0f, LaserLength), world), Perspective);
+
+            seg.Add(new XYPoint(start.X, start.Y, intensity: 2));
+            seg.Add(new XYPoint(
+                Math.Clamp(end.X, -1f, 1f),
+                Math.Clamp(end.Y, -1f, 1f),
+                intensity: 0.1));
         }
 
         // レーザーの長さ（3D 空間）

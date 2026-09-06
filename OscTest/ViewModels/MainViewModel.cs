@@ -58,7 +58,12 @@ public partial class MainViewModel : ViewModelBase, IDisposable
     public string? SelectedDevice
     {
         get => _selectedDevice;
-        set => this.RaiseAndSetIfChanged(ref _selectedDevice, value);
+        set
+        {
+            this.RaiseAndSetIfChanged(ref _selectedDevice, value);
+            foreach (var synthwave in VisualizerTypes.OfType<Synthwave>())
+                synthwave.SelectedDevice = value;
+        }
     }
 
     public ObservableCollection<string> ComPorts { get; } = new();
@@ -364,6 +369,9 @@ public partial class MainViewModel : ViewModelBase, IDisposable
 
         if (SelectedDevice == null)
             return;
+
+        if (SelectedVisualizer is Synthwave synthwave)
+            synthwave.SelectedDevice = SelectedDevice;
 
         if (SelectedDevice != "V.st")
         {
