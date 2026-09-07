@@ -104,6 +104,10 @@ namespace OscVisualizer.Services
             var bdmesh = MeshBuilder.BuildIndexedMesh(bdmodel, vertexMergeEpsilon: 5e-5f);
             StlLoader.MirrorXOnLoad = true;
 
+            targetAngleX = (float)(random.NextDouble() * 25.0 - 12.5);
+            targetAngleY = (float)(random.NextDouble() * 40.0 - 20.0);
+            targetAngleZ = (float)(random.NextDouble() * 30.0 - 15.0);
+
             topScene = new SceneMeshInstance(topmesh);
             var bdScene = new SceneMeshInstance(bdmesh);
 

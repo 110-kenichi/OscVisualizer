@@ -33,6 +33,15 @@ namespace OscVisualizer.Services
         private LaserPattern _pattern = LaserPattern.Horizontal;
         private float _nextPatternChange = 7f;
 
+        private float _kickAverage;
+        private float _kickPeak;
+        private bool _kickArmed = true;
+        private float _lastKickTime = float.NegativeInfinity;
+        private float _fireStartTime = float.NegativeInfinity;
+        private float _fireSeed;
+        private const float FireJetDuration = 1.0f;
+        private const float FireDuration = 4.2f;
+
         private enum LaserPattern
         {
             Horizontal,
@@ -136,7 +145,202 @@ namespace OscVisualizer.Services
                     break;
             }
 
+            UpdateFire(fft, time, deltaTime, sampleRate);
+            DrawFireColumns(seg, time);
+
             return seg;
+        }
+
+        private void UpdateFire(float[] spectrum, float time, float deltaTime, int sampleRate)
+        {
+            if (spectrum.Length == 0 || sampleRate <= 0)
+                return;
+
+            // ProcessAudio supplies the positive-frequency half of an unscaled FFT.
+            float binHz = sampleRate / (2f * spectrum.Length);
+            int first = Math.Max(1, (int)MathF.Ceiling(50f / binHz));
+            int last = Math.Min(spectrum.Length - 1, (int)MathF.Floor(100f / binHz));
+            float energy = 0f;
+            for (int i = first; i <= last; i++)
+                energy += spectrum[i] * spectrum[i];
+            float level = MathF.Sqrt(energy) / spectrum.Length;
+
+            float dt = float.IsFinite(deltaTime) ? Math.Clamp(deltaTime, 0f, 0.1f) : 0f;
+            float threshold = MathF.Max(0.003f, _kickAverage * 1.8f);
+            if (level < MathF.Max(0.0015f, _kickPeak * 0.55f))
+                _kickArmed = true;
+
+            if (_kickArmed && level > threshold && time - _lastKickTime >= 0.18f)
+            {
+                _kickArmed = false;
+                _lastKickTime = time;
+                _kickPeak = level;
+                // Only roll for a new flame after the current effect has finished.
+                if (time - _fireStartTime >= FireDuration) // && _random.NextSingle() < 0.5f)
+                {
+                    _fireStartTime = time;
+                    _fireSeed = _random.NextSingle() * MathF.Tau;
+                }
+            }
+
+            _kickPeak = MathF.Max(level, _kickPeak * MathF.Exp(-dt / 0.25f));
+            _kickAverage += (level - _kickAverage) * (1f - MathF.Exp(-dt / 0.35f));
+        }
+
+        private void DrawFireColumns(List<XYPoint> seg, float time)
+        {
+            float age = time - _fireStartTime;
+            if (age <= 0f || age >= FireDuration)
+                return;
+
+            float growth = FireSmooth(age / 0.65f);
+            float release = MathF.Max(0f, age - FireJetDuration);
+            float separation = FireSmooth(release / 0.3f);
+            float cooling = FireSmooth(release / (FireDuration - FireJetDuration));
+            float fade = 1f - cooling;
+
+            for (int column = 0; column < 2; column++)
+            {
+                float centerX = column == 0 ? -0.65f : 0.65f;
+                float phase = _fireSeed + column * 2.7f;
+                const int steps = 80;
+                Vector2[] outline = new Vector2[steps + 1];
+                Vector2 previous = FireOutline(0f, centerX, age, phase,
+                    growth, release, separation, cooling);
+                outline[0] = previous;
+                for (int i = 1; i <= steps; i++)
+                {
+                    Vector2 current = i == steps ? outline[0]
+                        : FireOutline(i * MathF.Tau / steps,
+                            centerX, age, phase, growth, release, separation, cooling);
+                    outline[i] = current;
+                    // Stable groups of fragments shorten and fade as the flame cools.
+                    float fragmentLife = 0.3f + 0.7f * ((i / 4 * 17 + column * 11) % 23) / 22f;
+                    float visibility = 1f - FireSmooth((cooling - fragmentLife + 0.2f) / 0.2f);
+                    if (visibility > 0f)
+                    {
+                        Vector2 end = Vector2.Lerp(previous, current, visibility);
+                        float brightness = 0.9f * growth * fade * visibility;
+                        seg.Add(new XYPoint(previous.X, previous.Y, brightness));
+                        seg.Add(new XYPoint(end.X, end.Y, brightness));
+                    }
+                    previous = current;
+                }
+                // Follow the outline's cooling duration, approaching intensity 0.1.
+                DrawFireMesh(seg, outline, growth * (0.5f + 0.45f * fade));
+            }
+        }
+
+        private static void DrawFireMesh(List<XYPoint> seg, Vector2[] outline,
+            float brightness)
+        {
+            if (brightness <= 0.001f)
+                return;
+
+            // Crosshatch at +/-45 degrees, clipped to the animated silhouette.
+            float spacing = 0.075f * (1f / (brightness * brightness));
+            const float diagonal = 0.70710678f;
+            List<float> intersections = new(outline.Length);
+            for (int direction = -1; direction <= 1; direction += 2)
+            {
+                Vector2 normal = new(diagonal, direction * diagonal);
+                Vector2 tangent = new(-normal.Y, normal.X);
+                float min = float.PositiveInfinity;
+                float max = float.NegativeInfinity;
+                for (int i = 0; i < outline.Length - 1; i++)
+                {
+                    float projection = Vector2.Dot(outline[i], normal);
+                    min = MathF.Min(min, projection);
+                    max = MathF.Max(max, projection);
+                }
+
+                for (int line = (int)MathF.Ceiling(min / spacing);
+                    line * spacing < max; line++)
+                {
+                    float offset = line * spacing;
+                    intersections.Clear();
+                    for (int i = 0; i < outline.Length - 1; i++)
+                    {
+                        Vector2 a = outline[i];
+                        Vector2 b = outline[i + 1];
+                        float da = Vector2.Dot(a, normal);
+                        float db = Vector2.Dot(b, normal);
+                        if ((da <= offset && db > offset) || (db <= offset && da > offset))
+                            intersections.Add(Vector2.Dot(
+                                Vector2.Lerp(a, b, (offset - da) / (db - da)), tangent));
+                    }
+                    intersections.Sort();
+                    for (int i = 0; i + 1 < intersections.Count; i += 2)
+                    {
+                        Vector2 start = normal * offset + tangent * intersections[i];
+                        Vector2 end = normal * offset + tangent * intersections[i + 1];
+                        float length = Vector2.Distance(start, end);
+                        if (length <= 0.000001f)
+                            continue;
+
+                        // A bright rounded core, with a faint fringe beyond the silhouette.
+                        float fringe = MathF.Min(0.045f, length * 0.2f);
+                        Vector2 axis = (end - start) / length;
+                        const int sections = 12;
+                        for (int section = 0; section < sections; section++)
+                        {
+                            float from = -fringe + (length + 2f * fringe) * section / sections;
+                            float to = -fringe + (length + 2f * fringe) * (section + 1) / sections;
+                            float middle = (from + to) * 0.5f;
+                            float shade;
+                            if (middle < 0f || middle > length)
+                            {
+                                float distance = middle < 0f ? -middle : middle - length;
+                                shade = 0.18f * (1f - FireSmooth(distance / fringe));
+                            }
+                            else
+                            {
+                                shade = 0.18f + 0.82f * MathF.Sin(MathF.PI * middle / length);
+                            }
+
+                            Vector2 a = start + axis * from;
+                            Vector2 b = start + axis * to;
+                            float intensity = brightness * shade;
+                            seg.Add(new XYPoint(a.X, a.Y, intensity));
+                            seg.Add(new XYPoint(b.X, b.Y, intensity));
+                        }
+                    }
+                }
+            }
+        }
+
+        private static Vector2 FireOutline(float angle, float centerX, float age,
+            float phase, float growth, float release, float separation, float cooling)
+        {
+            float v = (1f - MathF.Cos(angle)) * 0.5f;
+            float bottom = 0.52f * separation;
+            float u = bottom + (1f - bottom) * v;
+            float side = MathF.Sin(angle) >= 0f ? 1f : -1f;
+
+            // A narrow jet feeds a rounded head with rolling, asymmetric lobes.
+            float head = Math.Clamp((u - 0.48f) / 0.52f, 0f, 1f);
+            float bulb = MathF.Pow(MathF.Max(0f, MathF.Sin(head * MathF.PI)), 0.65f);
+            float neck = 0.016f * (1f - u);
+            float width = (neck + 0.17f * bulb) * growth;
+            width *= (1f + 0.4f * cooling) * (0.94f + 0.06f * MathF.Sin(phase));
+            width *= 1f
+                + (0.12f + 0.08f * cooling) * MathF.Sin(u * 29f - age * 7f + phase + side)
+                + 0.06f * MathF.Sin(u * 53f - age * 11f + phase * 2f + side);
+            // Close the underside while the jet withdraws into the detached head.
+            width *= 1f + (FireSmooth(v / 0.12f) - 1f) * separation;
+
+            float sway = (0.024f * MathF.Sin(u * 9f - age * 3f + phase)
+                + 0.012f * MathF.Sin(u * 21f - age * 7f + phase)) * u * growth;
+            float x = centerX + sway + side * width;
+            float height = 1.38f + 0.06f * MathF.Sin(phase);
+            float y = -0.96f + height * growth * u + release * 0.19f;
+            return new Vector2(x, y);
+        }
+
+        private static float FireSmooth(float value)
+        {
+            float t = Math.Clamp(value, 0f, 1f);
+            return t * t * (3f - 2f * t);
         }
 
         private static readonly Vector2[] LaserOrigins =
