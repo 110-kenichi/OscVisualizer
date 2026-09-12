@@ -258,6 +258,11 @@ namespace OscVisualizer.Services
 
         private static readonly Random random = new Random(DateTime.Now.Millisecond);
 
+        private static readonly float[] PlanetOrbitRadii =
+        {
+            2.0f, 3.2f, 4.5f, 6.0f, 8.2f, 10.8f, 13.5f, 16.0f
+        };
+
         // タイマー（約30〜60fps）で毎回呼び出す処理
         private void UpdateRotation(float kick, float snare, float hat)
         {
@@ -337,6 +342,50 @@ namespace OscVisualizer.Services
             _renderer.SceneRotationZDeg = 0f;
         }
 
+        private void DrawOrbitTrajectories(List<XYPoint> points, float kick)
+        {
+            const int segmentsPerOrbit = 48;
+            const float intensity = 0.18f;
+
+            float rotationX = 18f * MathF.PI / 180f;
+            float rotationY = (float)(_sw.Elapsed.TotalSeconds * 2.0 % 360.0) * MathF.PI / 180f;
+            Matrix4x4 sceneRotation =
+                Matrix4x4.CreateRotationX(rotationX) *
+                Matrix4x4.CreateRotationY(rotationY);
+            float sceneScale = 1f + kick * 0.05f;
+            Vector3 sceneTranslation = new(0f, 0f, 30f);
+
+            foreach (float radius in PlanetOrbitRadii)
+            {
+                Vector2 previous = ProjectOrbitPoint(radius, 0f, sceneScale, sceneRotation, sceneTranslation);
+
+                for (int i = 1; i <= segmentsPerOrbit; i++)
+                {
+                    float angle = i * MathF.Tau / segmentsPerOrbit;
+                    Vector2 current = ProjectOrbitPoint(radius, angle, sceneScale, sceneRotation, sceneTranslation);
+                    points.Add(new XYPoint(previous.X, previous.Y, intensity));
+                    points.Add(new XYPoint(current.X, current.Y, intensity));
+                    previous = current;
+                }
+            }
+        }
+
+        private static Vector2 ProjectOrbitPoint(
+            float radius,
+            float angle,
+            float sceneScale,
+            Matrix4x4 sceneRotation,
+            Vector3 sceneTranslation)
+        {
+            Vector3 point = new(radius * MathF.Cos(angle), 0f, radius * MathF.Sin(angle));
+            point *= sceneScale;
+            point = Vector3.Transform(point, sceneRotation) + sceneTranslation;
+
+            return new Vector2(
+                point.X / point.Z * 1.5f,
+                point.Y / point.Z * 1.5f);
+        }
+
         public List<XYPoint> ProcessAudio(WasapiCapture capture, WaveInEventArgs e)
         {
             var fmt = capture.WaveFormat;
@@ -371,7 +420,9 @@ namespace OscVisualizer.Services
             // レンダリング
             UpdateRotation(kick, snare, hat);
             _renderer.Render(displayDevice);
-            return new List<XYPoint>(displayDevice.Points);
+            List<XYPoint> points = new(displayDevice.Points);
+            DrawOrbitTrajectories(points, kick);
+            return points;
         }
 
     }
