@@ -47,6 +47,7 @@
     <AvaloniaResource Remove="Assets\TRON_Edge.stl" />
     <AvaloniaResource Remove="Assets\TRON_Floor.stl" />
     <AvaloniaResource Remove="Assets\TRON_Wall.stl" />
+    <AvaloniaResource Remove="Assets\Urban City.stl" />
   </ItemGroup>
 
   <ItemGroup>
@@ -163,6 +164,9 @@
 
   <ItemGroup>
     <Content Include="Assets\TRON_Wall.stl">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\Urban City.stl">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
