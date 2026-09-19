@@ -79,13 +79,13 @@ namespace OscVisualizer.Services
 
                 if (!bestReversed)
                 {
-                    result.Add(new XYPoint(rl.P0.X, rl.P0.Y, orig0.Intensity, orig0.Z));
-                    result.Add(new XYPoint(rl.P1.X, rl.P1.Y, orig1.Intensity, orig1.Z));
+                    result.Add(new XYPoint(rl.P0.X, rl.P0.Y, orig0.Intensity, orig0.Z, orig0.DisableBright));
+                    result.Add(new XYPoint(rl.P1.X, rl.P1.Y, orig1.Intensity, orig1.Z, orig1.DisableBright));
                 }
                 else
                 {
-                    result.Add(new XYPoint(rl.P0.X, rl.P0.Y, orig1.Intensity, orig1.Z));
-                    result.Add(new XYPoint(rl.P1.X, rl.P1.Y, orig0.Intensity, orig0.Z));
+                    result.Add(new XYPoint(rl.P0.X, rl.P0.Y, orig1.Intensity, orig1.Z, orig1.DisableBright));
+                    result.Add(new XYPoint(rl.P1.X, rl.P1.Y, orig0.Intensity, orig0.Z, orig0.DisableBright));
                 }
             }
 

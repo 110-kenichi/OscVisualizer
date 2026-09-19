@@ -4,6 +4,7 @@ using NAudio.Wave;
 using OscVisualizer.Models;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
@@ -20,6 +21,13 @@ namespace OscVisualizer.Services
 {
     public interface IAudioVisualizer
     {
+        public static bool IsInDesigner()
+        {
+            var p = Process.GetCurrentProcess().ProcessName;
+            return p.Contains("AvaloniaDesigner", StringComparison.OrdinalIgnoreCase)
+                || p.Contains("design", StringComparison.OrdinalIgnoreCase);
+        }
+
         /// <summary>
         /// Converts audio data from a WASAPI capture source to a single-channel array of 32-bit floating-point samples
         /// in WAV format.

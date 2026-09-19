@@ -92,6 +92,8 @@ namespace OscVisualizer.Services
             _visualizerView?.DataContext = _settingsViewModel;
 
             // STLファイルパス（適宜変更）
+            if (!File.Exists(@"Assets\MegaDrive.stl"))
+                return;
 
             var bodymodel = StlLoader.Load(@"Assets\MegaDrive.stl");
             bodymodel.NormalizeToUnitCube();
@@ -147,8 +149,8 @@ namespace OscVisualizer.Services
 
             public void DrawLine(float x0, float y0, float x1, float y1)
             {
-                Points.Add(new XYPoint(x0, y0, 0.125));
-                Points.Add(new XYPoint(x1, y1, 0.125));
+                Points.Add(new XYPoint(x0, y0, 0.125, 0, true));
+                Points.Add(new XYPoint(x1, y1, 0.125, 0, true));
             }
 
             public void EndFrame()

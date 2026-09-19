@@ -245,8 +245,8 @@ namespace OscVisualizer.Services
                 radius = Math.Max(radius, Math.Sqrt(source[i].X * source[i].X + source[i].Y * source[i].Y));
             radius = Math.Min(radius + CoinRimMargin, MaximumCoinRadius / GetCoinScale());
 
-            _ = ProjectPoint(new XYPoint(0, 0), halfThickness, out double frontCenterDepth);
-            _ = ProjectPoint(new XYPoint(0, 0), -halfThickness, out double backCenterDepth);
+            _ = ProjectPoint(new XYPoint(0, 0, 1, 0, true), halfThickness, out double frontCenterDepth);
+            _ = ProjectPoint(new XYPoint(0, 0, 1, 0, true), -halfThickness, out double backCenterDepth);
             bool frontIsVisible = frontCenterDepth <= backCenterDepth;
             double visibleDepth = frontIsVisible ? halfThickness : -halfThickness;
 
@@ -275,7 +275,7 @@ namespace OscVisualizer.Services
             for (int i = 0; i < segmentCount; i++)
             {
                 double angle = i * Math.PI * 2 / segmentCount;
-                var rimPoint = new XYPoint(radius * Math.Cos(angle), radius * Math.Sin(angle));
+                var rimPoint = new XYPoint(radius * Math.Cos(angle), radius * Math.Sin(angle), 1, 0, true);
                 front[i] = ProjectPoint(rimPoint, halfThickness, out _);
                 back[i] = ProjectPoint(rimPoint, -halfThickness, out _);
                 sideVisible[i] = IsCoinSideVisible(angle + Math.PI / segmentCount);
@@ -321,8 +321,8 @@ namespace OscVisualizer.Services
 
         private static void AddProjectedLine(List<XYPoint> points, XYPoint start, XYPoint end)
         {
-            points.Add(new XYPoint(start.X, start.Y, DimIntensity));
-            points.Add(new XYPoint(end.X, end.Y, end.Intensity));
+            points.Add(new XYPoint(start.X, start.Y, DimIntensity, 0, true));
+            points.Add(new XYPoint(end.X, end.Y, end.Intensity, 0, true));
         }
 
         private void BeginKamonTransition(int targetIndex, double now)
@@ -352,7 +352,7 @@ namespace OscVisualizer.Services
                 result.Add(new XYPoint(
                     x + (target.X - x) * eased,
                     y + (target.Y - y) * eased,
-                    source.Intensity + (target.Intensity - source.Intensity) * eased));
+                    source.Intensity + (target.Intensity - source.Intensity) * eased, 0, true));
             }
 
             return result;
@@ -364,7 +364,7 @@ namespace OscVisualizer.Services
             if (source.Count == 0)
             {
                 for (int i = 0; i < count; i++)
-                    result.Add(new XYPoint(0, 0, 0.01));
+                    result.Add(new XYPoint(0, 0, 0.01, 0, true));
                 return result;
             }
 
@@ -379,7 +379,7 @@ namespace OscVisualizer.Services
                 result.Add(new XYPoint(
                     a.X + (b.X - a.X) * fraction,
                     a.Y + (b.Y - a.Y) * fraction,
-                    a.Intensity + (b.Intensity - a.Intensity) * fraction));
+                    a.Intensity + (b.Intensity - a.Intensity) * fraction, 0, true));
             }
 
             return result;
@@ -421,7 +421,7 @@ namespace OscVisualizer.Services
             return new XYPoint(
                 Math.Clamp(x3 * perspective, -0.98, 0.98),
                 Math.Clamp(y3 * perspective, -0.98, 0.98),
-                point.Intensity);
+                point.Intensity, 0, true);
         }
 
         private double GetCoinScale()
@@ -603,8 +603,8 @@ namespace OscVisualizer.Services
 
         private static void AddLine(List<XYPoint> p, double x0, double y0, double x1, double y1, double intensity = NormalIntensity)
         {
-            p.Add(new XYPoint(x0, y0, DimIntensity));
-            p.Add(new XYPoint(x1, y1, intensity));
+            p.Add(new XYPoint(x0, y0, DimIntensity, 0, true));
+            p.Add(new XYPoint(x1, y1, intensity, 0, true));
         }
 
         private static void AddCircle(List<XYPoint> p, double cx, double cy, double radius, int count)

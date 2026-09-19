@@ -36,8 +36,8 @@ namespace OscVisualizer.Services
 
         private static void AddSegment(List<XYPoint> points, float x0, float y0, float x1, float y1, float intensity = 0.7f)
         {
-            points.Add(new XYPoint(x0, y0, intensity));
-            points.Add(new XYPoint(x1, y1, intensity));
+            points.Add(new XYPoint(x0, y0, intensity, 0, true));
+            points.Add(new XYPoint(x1, y1, intensity, 0, true));
         }
 
         private static Vector2 Rotate(Vector2 p, float angle)

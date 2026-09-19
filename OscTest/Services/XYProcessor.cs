@@ -498,7 +498,7 @@ namespace OscVisualizer.Services
                 if (x1 != prevX2 || y1 != prevY2)
                     port.SendPenUp(x1, y1);
 
-                if(EnableZAxis)
+                if(EnableZAxis && !points[i].DisableBright)
                     port.SendBrightLine(x2, y2, brightness);
                 else
                     port.SendNormalLine(x2, y2, brightness);

@@ -360,8 +360,8 @@ namespace OscVisualizer.Services
 
                 for (int i = 0; i < pts.Count - 1; i++)
                 {
-                    result.Add(new XYPoint(pts[i].X, pts[i].Y, brightness));
-                    result.Add(new XYPoint(pts[i + 1].X, pts[i + 1].Y, brightness));
+                    result.Add(new XYPoint(pts[i].X, pts[i].Y, brightness, 0, true));
+                    result.Add(new XYPoint(pts[i + 1].X, pts[i + 1].Y, brightness, 0, true));
                 }
             }
 
@@ -401,7 +401,7 @@ namespace OscVisualizer.Services
                     var p = result[i];
                     float rx = (float)p.X * cos - (float)p.Y * sin;
                     float ry = (float)p.X * sin + (float)p.Y * cos;
-                    result[i] = new XYPoint(rx, ry, p.Intensity, p.Z);
+                    result[i] = new XYPoint(rx, ry, p.Intensity, p.Z, true);
                 }
             }
 

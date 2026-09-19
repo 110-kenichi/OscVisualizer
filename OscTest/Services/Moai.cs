@@ -101,6 +101,8 @@ namespace OscVisualizer.Services
             _visualizerView?.DataContext = _settingsViewModel;
 
             // STLファイルパス（適宜変更）
+            if (!File.Exists(@"Assets\Moai_A.stl"))
+                return;
 
             var bodyamodel = StlLoader.Load(@"Assets\Moai_A.stl");
             var bodyamesh = MeshBuilder.BuildIndexedMesh(bodyamodel, vertexMergeEpsilon: 5e-5f);

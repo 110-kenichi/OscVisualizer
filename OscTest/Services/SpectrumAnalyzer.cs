@@ -111,7 +111,7 @@ namespace OscVisualizer.Services
             // XYProcessor 用に変換
             List<XYPoint> points = new();
 
-            for (int b = 0; b < barCount-1; b++)
+            for (int b = 0; b < barCount - 1; b++)
             {
                 {
                     float x = (float)b / (barCount - 1); // 0〜1
@@ -121,7 +121,7 @@ namespace OscVisualizer.Services
                     x = x * 2f - 1f;
                     y = y * 2f - 1f;
 
-                    points.Add(new XYPoint(x, y, 0.5));
+                    points.Add(new XYPoint(x, y, 0.5, 0, true));
                 }
                 b++;
                 {
@@ -132,7 +132,7 @@ namespace OscVisualizer.Services
                     x = x * 2f - 1f;
                     y = y * 2f - 1f;
 
-                    points.Add(new XYPoint(x, y, 0.5));
+                    points.Add(new XYPoint(x, y, 0.5, 0, true));
                 }
                 b--;
             }

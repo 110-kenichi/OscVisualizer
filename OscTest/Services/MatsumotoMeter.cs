@@ -231,7 +231,7 @@ namespace OscVisualizer.Services
 
         private static void AddLine(List<XYPoint> points, double x0, double y0, double x1, double y1, double intensity = 0.8)
         {
-            points.Add(new XYPoint(x0, y0, 0.25));
+            points.Add(new XYPoint(x0, y0, intensity));
             points.Add(new XYPoint(x1, y1, intensity));
         }
 

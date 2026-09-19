@@ -100,6 +100,8 @@ namespace OscVisualizer.Services
             _visualizerView?.DataContext = _settingsViewModel;
 
             // STLファイルパス（適宜変更）
+            if (!File.Exists(@"Assets\SW2_Testarossa.stl"))
+                return;
 
             var bodymesh = MeshBuilder.BuildIndexedMesh(StlLoader.Load(@"Assets\SW2_Testarossa.stl"), vertexMergeEpsilon: 1e-5f);
             var bodyScene = new SceneMeshInstance(bodymesh);
@@ -196,8 +198,8 @@ namespace OscVisualizer.Services
 
             public void DrawLine(float x0, float y0, float x1, float y1)
             {
-                Points.Add(new XYPoint(x0, y0, 0.25));
-                Points.Add(new XYPoint(x1, y1, 0.25));
+                Points.Add(new XYPoint(x0, y0, 0.25f, 0, true));
+                Points.Add(new XYPoint(x1, y1, 0.25f, 0, true));
             }
 
             public void EndFrame()
@@ -306,7 +308,7 @@ namespace OscVisualizer.Services
                 int next = cameraRandom.Next(SceneYDegs.Length);
                 currentCameraIndex = next;
             }
-            switch(currentCameraIndex)
+            switch (currentCameraIndex)
             {
                 case 0:
                     for (int y = -1; y < 5; y++)

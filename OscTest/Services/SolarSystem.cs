@@ -105,6 +105,8 @@ namespace OscVisualizer.Services
             _visualizerView?.DataContext = _settingsViewModel;
 
             // STLファイルパス（適宜変更）
+            if (!File.Exists(@"Assets\Solar System - Sun.stl"))
+                return;
 
             var sun_model = StlLoader.Load(@"Assets\Solar System - Sun.stl");
             sun_model.NormalizeToUnitCube();
