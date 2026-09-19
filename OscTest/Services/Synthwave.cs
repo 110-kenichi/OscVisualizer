@@ -280,8 +280,8 @@ namespace OscVisualizer.Services
                 float halfWidth = MathF.Sqrt(
                     MathF.Max(0f, SunRadius * SunRadius - offsetY * offsetY));
 
-                segments.Add(new XYPoint(-halfWidth, y, 1.2f));
-                segments.Add(new XYPoint(halfWidth, y, 1.2f));
+                segments.Add(new XYPoint(-halfWidth, y, 1.5f - i / 7.5f));
+                segments.Add(new XYPoint(halfWidth, y, 1.5f - i / 7.5f));
             }
         }
 

@@ -26,11 +26,11 @@ namespace OscVisualizer.Services
 
             List<XYPoint> points = new();
 
-            points.Add(new XYPoint(0, 0));
-            points.Add(new XYPoint(1, -1));
+            points.Add(new XYPoint(-1, 1, 0.1));
+            points.Add(new XYPoint(0, 0, 0.1));
 
-            points.Add(new XYPoint(1, -1));
-            points.Add(new XYPoint(0, 0));
+            points.Add(new XYPoint(0, 0, 0.1));
+            points.Add(new XYPoint(1, -1, 0.1));
             return points;
         }
 

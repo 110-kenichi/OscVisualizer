@@ -13,6 +13,7 @@ namespace OscVisualizer.Services
     {
         FrameEnd = 0b00,  // 00: flag==0 → バッファスワップ（フレーム終端）。Teensy は rx_points を num_points に切り替える
         NormalLine = 0b01,  // 01: 通常輝度ラインを X,Y へ描画
+        BrightLine = 0b10,  // 10: Z輝度ラインを X,Y へ描画
     }
 
     public class VectorSerialPort : IDisposable
@@ -114,35 +115,9 @@ namespace OscVisualizer.Services
         public void SendNormalLine(int x, int y, int brightness) =>
             Send(VectorCommand.NormalLine, (int)Math.Clamp(brightness, 0, 63), x, y);
 
-        /// <summary>
-        /// XYPoint リスト（-1.0〜+1.0 座標）を1フレーム分送信し、FrameEnd で締める。
-        /// 座標は 0〜4095 の 12bit 整数に変換される。
-        /// </summary>
-        public void SendXYPoints(List<XYPoint> points)
-        {
-            // 初回接続時のみ再同期（境界ずれをリセット）
-            SendResync();
-
-            if (points.Count < 2) { SendFrameEnd(); return; }
-
-            SendPenUp(ToCoord(points[0].X), ToCoord(points[0].Y));
-
-            for (int i = 0; i + 1 < points.Count; i += 2)
-            {
-                int brightness = (int)Math.Clamp(points[i].Intensity * 63.0, 0, 63);
-                int x = ToCoord(points[i + 1].X);
-                int y = ToCoord(points[i + 1].Y);
-                Send(VectorCommand.NormalLine, brightness, x, y);
-            }
-
-            // フレーム終端: バッファ内全コマンドを一括 Write() で送信
-            SendFrameEnd();
-        }
-
-        /// <summary>正規化座標 (-1.0〜+1.0) を 12bit 整数 (0〜4095) に変換する。</summary>
-        private static int ToCoord(double v) =>
-            (int)Math.Clamp((v + 1.0) * 2047.5, 0.0, 4095.0);
-
+        /// <summary>Z輝度で X,Y まで線を引く。</summary>
+        public void SendBrightLine(int x, int y, int brightness) =>
+            Send(VectorCommand.BrightLine, (int)Math.Clamp(brightness, 0, 63), x, y);
 
         public void Dispose()
         {
