@@ -84,6 +84,13 @@ namespace OscVisualizer.ViewModels
             set;
         } = 1.2f;
 
+        [Reactive]
+        public partial bool SynchronizeBeat
+        {
+            get;
+            set;
+        } = false;
+
         private CancellationTokenSource? _updateCts;
         private const int DelayMs = 500; // ドラッグ終了後の遅延時間
 

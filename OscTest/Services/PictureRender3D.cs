@@ -43,6 +43,9 @@ namespace OscVisualizer.Services
         private int _currentFrameIndex = 0;
         private Stopwatch _lastFrameTimeStopwatch = Stopwatch.StartNew();
 
+        private GifBeatSynchronizer? _gifBeatSynchronizer;
+        private List<List<XYPoint>>? _beatAnimationFrames;
+
         public PictureRender3D()
         {
             _visualizerView = new PictureRender3DView();
@@ -95,12 +98,41 @@ namespace OscVisualizer.Services
         {
             // 表示用の現在フレームを取得
             List<XYPoint> currentFramePoints;
+            int sampleRate = capture.WaveFormat.SampleRate;
+            float[] wav = IAudioVisualizer.ConvertToWav1ch(capture, e);
+            if (wav.Length == 0)
+                return new List<XYPoint>();
+
+            int beatFrame = -1;
+            if (settingsViewModel.SynchronizeBeat && animationFrames.Count > 0)
+            {
+                if (_gifBeatSynchronizer == null ||
+                    !ReferenceEquals(_beatAnimationFrames, animationFrames))
+                {
+                    _gifBeatSynchronizer = new GifBeatSynchronizer();
+                    _beatAnimationFrames = animationFrames;
+                }
+                beatFrame = _gifBeatSynchronizer.SelectFrame(
+                    wav, sampleRate, frameDurations, animationFrames.Count);
+            }
+            else
+            {
+                _gifBeatSynchronizer = null;
+                _beatAnimationFrames = null;
+            }
+
 
             if (animationFrames.Count > 0)
             {
                 // GIFアニメーションの場合、フレームを時間ベースで切り替え
                 double elapsedMs = _lastFrameTimeStopwatch.Elapsed.TotalMilliseconds;
-                if (frameDurations.Count > _currentFrameIndex)
+                if (beatFrame >= 0)
+                {
+                    _currentFrameIndex = beatFrame;
+                    _lastFrameTimeStopwatch.Restart();
+                }
+                else if (!settingsViewModel.SynchronizeBeat &&
+                    frameDurations.Count > _currentFrameIndex)
                 {
                     int frameDurationMs = frameDurations[_currentFrameIndex] * 10; // 10ms単位から通常のms単位に変換
                     if (frameDurationMs <= 0) frameDurationMs = 100; // デフォルト100ms
@@ -143,9 +175,6 @@ namespace OscVisualizer.Services
 
             var view = CreateLookAt(camPos, camTarget, camUp);
 
-            var fmt = capture.WaveFormat;
-            float[] wav = IAudioVisualizer.ConvertToWav1ch(capture, e);
-            int sampleRate = fmt.SampleRate;
 
             //ハイパスフィルタ
             prevX = 0;
@@ -650,6 +679,7 @@ namespace OscVisualizer.Services
                         settingsViewModel.ThetaY = loaded.ThetaY;
                         settingsViewModel.ThetaZ = loaded.ThetaZ;
                         settingsViewModel.PictureSize = loaded.PictureSize;
+                        settingsViewModel.SynchronizeBeat = loaded.SynchronizeBeat;
                     }
                 }
             }
