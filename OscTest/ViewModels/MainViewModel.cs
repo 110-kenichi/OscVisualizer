@@ -177,6 +177,8 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         new MatsumotoMeter(),
         new Tunder(),
         new UrbanCity(),
+        new PartyParrot(),
+        new NyanCat(),
         new ScreenCapture(),
     ];
 

@@ -20,6 +20,8 @@
     <AvaloniaResource Remove="Assets\Moai_Ring.stl" />
     <AvaloniaResource Remove="Assets\NEOGEO LOGO_BOTTOM.stl" />
     <AvaloniaResource Remove="Assets\NEOGEO LOGO_TOP.stl" />
+    <AvaloniaResource Remove="Assets\nyan-cat.gif" />
+    <AvaloniaResource Remove="Assets\Party_Parrot.gif" />
     <AvaloniaResource Remove="Assets\POM JUICE.stl" />
     <AvaloniaResource Remove="Assets\POM JUICE_Border.stl" />
     <AvaloniaResource Remove="Assets\RightStar.stl" />
@@ -80,6 +82,12 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Assets\NEOGEO LOGO_TOP.stl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\nyan-cat.gif">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\Party_Parrot.gif">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Assets\POM JUICE.stl">
