@@ -86,6 +86,10 @@ namespace OscVisualizer.Services
         private float _xWingWarpY;
         private float _nextXWingJitterTime;
         private Vector2 _xWingJitterOffset;
+        private bool _xWingRecovering;
+        private float _xWingRecoverStartTime;
+        private Vector3 _xWingRecoverStartPosition;
+        private float _xWingRecoverStartRoll;
         private long _frameNumber;
 
         internal StarCruisingFrameDiagnostics? LastFrameDiagnostics { get; private set; }
@@ -337,11 +341,26 @@ namespace OscVisualizer.Services
             }
             else
             {
-                _xWing.Translation = new Vector3(
+                Vector3 normalPosition = new(
                     MathF.Sin(time * 0.7f) * 1.8f,
                     -1.8f,
                     8f);
-                _xWing.RotationZDeg = MathF.Sin(time * 0.7f) * 4f;
+                float normalRoll = MathF.Sin(time * 0.7f) * 4f;
+
+                if (_xWingRecovering)
+                {
+                    float recoverT = Math.Clamp((time - _xWingRecoverStartTime) / WarpFadeDuration, 0f, 1f);
+                    _xWing.Translation = Vector3.Lerp(_xWingRecoverStartPosition, normalPosition, recoverT);
+                    _xWing.RotationZDeg = _xWingRecoverStartRoll + (normalRoll - _xWingRecoverStartRoll) * recoverT;
+
+                    if (recoverT >= 1f)
+                        _xWingRecovering = false;
+                }
+                else
+                {
+                    _xWing.Translation = normalPosition;
+                    _xWing.RotationZDeg = normalRoll;
+                }
             }
 
             _xWing.RotationYDeg = -90f;
@@ -369,20 +388,22 @@ namespace OscVisualizer.Services
             {
                 _isHyperspace = false;
                 _nextWarpTime = time + 16f + _random.NextSingle() * 18f;
-
-                for (int i = 0; i < _stars.Length; i++)
-                    ResetStar(i, StarNearZ + _random.NextSingle() * (StarFarZ - StarNearZ));
+                _xWingRecovering = true;
+                _xWingRecoverStartTime = time;
+                _xWingRecoverStartPosition = _xWing.Translation;
+                _xWingRecoverStartRoll = _xWing.RotationZDeg;
             }
         }
 
-        private float GetWarpFade(float time)
+        private float GetHyperspaceBlend(float time)
         {
             if (!_isHyperspace)
-                return 1f;
+                return 0f;
 
             float fadeIn = Math.Clamp((time - _warpStartTime) / WarpFadeDuration, 0f, 1f);
             float fadeOut = Math.Clamp((_warpEndTime - time) / WarpFadeDuration, 0f, 1f);
-            return MathF.Min(fadeIn, fadeOut);
+            float blend = MathF.Min(fadeIn, fadeOut);
+            return blend * blend * (3f - 2f * blend);
         }
 
         private void UpdateApproachingBodies(float time, float deltaTime, float kick, float hat)
@@ -585,10 +606,10 @@ namespace OscVisualizer.Services
         {
             EnsureStars();
 
-            float speed = 2.4f + kick * 0.12f + hat * 0.2f;
-            if (_isHyperspace)
-                speed *= 18f;
-            float fade = GetWarpFade((float)_stopwatch.Elapsed.TotalSeconds);
+            float time = (float)_stopwatch.Elapsed.TotalSeconds;
+            float hyperspaceBlend = GetHyperspaceBlend(time);
+            float baseSpeed = 2.4f + kick * 0.12f + hat * 0.2f;
+            float speed = baseSpeed * (1f + hyperspaceBlend * 17f);
 
             for (int i = 0; i < _stars.Length; i++)
             {
@@ -598,10 +619,7 @@ namespace OscVisualizer.Services
 
                 if (current.Z < StarNearZ)
                 {
-                    float resetZ = _isHyperspace
-                        ? StarNearZ + _random.NextSingle() * (StarFarZ - StarNearZ)
-                        : StarFarZ;
-                    ResetStar(i, resetZ);
+                    ResetStar(i, StarFarZ + _random.NextSingle() * 2f);
                     continue;
                 }
 
@@ -614,9 +632,10 @@ namespace OscVisualizer.Services
                     continue;
 
                 float intensity = Math.Clamp(0.15f + (1f - current.Z / StarFarZ) * 0.85f, 0.15f, 1f);
-                float streakIntensity = (_isHyperspace ? intensity * 0.5f : intensity * 0.35f) * fade;
-                segments.Add(new XYPoint(start.X, start.Y, streakIntensity));
-                segments.Add(new XYPoint(end.X, end.Y, intensity * fade));
+                float trailScale = 0.35f + hyperspaceBlend * 0.55f;
+                float endScale = 0.95f + hyperspaceBlend * 0.05f;
+                segments.Add(new XYPoint(start.X, start.Y, intensity * trailScale));
+                segments.Add(new XYPoint(end.X, end.Y, intensity * endScale));
             }
         }
 
