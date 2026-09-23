@@ -179,6 +179,7 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         new UrbanCity(),
         new PartyParrot(),
         new NyanCat(),
+        new StarCruising(),
         new ScreenCapture(),
     ];
 

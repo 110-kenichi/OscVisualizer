@@ -50,6 +50,7 @@
     <AvaloniaResource Remove="Assets\TRON_Floor.stl" />
     <AvaloniaResource Remove="Assets\TRON_Wall.stl" />
     <AvaloniaResource Remove="Assets\Urban City.stl" />
+    <AvaloniaResource Remove="Assets\x-wing.stl" />
   </ItemGroup>
 
   <ItemGroup>
@@ -196,6 +197,12 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="System.IO.Ports" Version="10.0.10" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Assets\x-wing.stl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>

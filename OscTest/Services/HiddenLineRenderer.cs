@@ -888,6 +888,8 @@ namespace OscVisualizer.Services
     {
         private readonly List<SceneMeshInstance> _instances = new();
 
+        public IReadOnlyList<int> LastFrameInstanceLineCounts { get; private set; } = Array.Empty<int>();
+
         public bool DrawSharpEdges { get; set; } = true;
         public float SharpEdgeAngleDeg { get; set; } = 70f;
 
@@ -977,7 +979,10 @@ namespace OscVisualizer.Services
             }
 
             if (visibleInstances.Count == 0)
+            {
+                LastFrameInstanceLineCounts = Array.Empty<int>();
                 return new List<Line2D>();
+            }
 
             Vector3 sceneCenter = GetSceneRotationCenter(visibleInstances);
 
@@ -1133,7 +1138,8 @@ namespace OscVisualizer.Services
                     var candidateTriIndices = new List<int>(64);
                     grid.Query(seg.MinX, seg.MinY, seg.MaxX, seg.MaxY, candidateTriIndices);
 
-                    var visibleSegments = new List<SceneSegment>(1) { seg };
+                    var visibleSegments = new List<SceneSegment>(8) { seg };
+                    var scratchSegments = new List<SceneSegment>(8);
 
                     for (int ci = 0; ci < candidateTriIndices.Count; ci++)
                     {
@@ -1148,9 +1154,14 @@ namespace OscVisualizer.Services
                         if (tri.MinZ >= segMaxZ - Epsilon)
                             continue;
 
-                        visibleSegments = SubtractHiddenByTriangle(visibleSegments, tri);
-                        if (visibleSegments.Count == 0)
+                        SubtractHiddenByTriangle(visibleSegments, tri, scratchSegments);
+                        if (scratchSegments.Count == 0)
+                        {
+                            visibleSegments.Clear();
                             break;
+                        }
+
+                        (visibleSegments, scratchSegments) = (scratchSegments, visibleSegments);
                     }
 
                     var edgeLines = new List<Line2D>(visibleSegments.Count);
@@ -1180,6 +1191,14 @@ namespace OscVisualizer.Services
                 if (allLines[i] != null)
                     lines.AddRange(allLines[i]);
             }
+
+            int[] instanceLineCounts = new int[_instances.Count];
+            for (int i = 0; i < allLines.Length; i++)
+            {
+                if (allLines[i] != null)
+                    instanceLineCounts[_instances.IndexOf(visibleInstances[i])] = allLines[i].Count;
+            }
+            LastFrameInstanceLineCounts = instanceLineCounts;
 
             var clipped = new List<Line2D>(lines.Count);
             for (int i = 0; i < lines.Count; i++)
@@ -1525,16 +1544,14 @@ namespace OscVisualizer.Services
                 (p.Y / z) * FocalLength * ViewportScale);
         }
 
-        private List<SceneSegment> SubtractHiddenByTriangle(List<SceneSegment> segments, SceneTriangle tri)
+        private void SubtractHiddenByTriangle(List<SceneSegment> segments, SceneTriangle tri, List<SceneSegment> destination)
         {
-            var result = new List<SceneSegment>(segments.Count + 2);
+            destination.Clear();
 
             for (int i = 0; i < segments.Count; i++)
             {
-                SubtractSingleSegmentHiddenByTriangle(segments[i], tri, result);
+                SubtractSingleSegmentHiddenByTriangle(segments[i], tri, destination);
             }
-
-            return result;
         }
 
         private void SubtractSingleSegmentHiddenByTriangle(SceneSegment seg, SceneTriangle tri, List<SceneSegment> visible)
