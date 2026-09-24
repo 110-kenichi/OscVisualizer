@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <AvaloniaResource Remove="Assets\Cosmo Hosimaru.stl" />
+    <AvaloniaResource Remove="Assets\DeathStar.stl" />
     <AvaloniaResource Remove="Assets\LeftStar.stl" />
     <AvaloniaResource Remove="Assets\Lightning.stl" />
     <AvaloniaResource Remove="Assets\MegaDrive.stl" />
@@ -55,6 +56,12 @@
 
   <ItemGroup>
     <None Remove="Assets\Lightning.stl" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Assets\DeathStar.stl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>

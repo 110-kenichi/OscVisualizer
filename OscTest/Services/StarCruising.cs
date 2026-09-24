@@ -44,7 +44,7 @@ namespace OscVisualizer.Services
         private const float ProjectionDistance = 1.0f;
 
         private const int StarCount = 64;
-        private const float StarNearZ = 0.6f;
+        private const float StarNearZ = 0.3f;
         private const float StarFarZ = 10f;
         private const float StarFieldRadius = 5f;
 
@@ -52,7 +52,7 @@ namespace OscVisualizer.Services
         private const float BodySpawnZ = 96f;
         private const float BodyDespawnZ = 20f;
         private const float BodyFadeInDistance = 20f;
-        private const float WarpFadeDuration = 0.75f;
+        private const float WarpFadeDuration = 1.5f;
         private const int DiagnosticLogIntervalFrames = 60;
 
         // ============================================================
@@ -74,6 +74,7 @@ namespace OscVisualizer.Services
         private readonly HiddenLineSilhouetteSceneRenderer _bodyRenderer;
         private readonly SceneMeshInstance[] _bodyModels;
         private readonly SceneMeshInstance _xWing;
+        private readonly SceneMeshInstance _deathStar;
         private readonly DisplayDevice _bodyDisplay = new();
         private readonly List<ApproachingBody> _approachingBodies = new(MaxCelestialBodies);
         private float _nextBodySpawnTime = 3f;
@@ -90,6 +91,16 @@ namespace OscVisualizer.Services
         private float _xWingRecoverStartTime;
         private Vector3 _xWingRecoverStartPosition;
         private float _xWingRecoverStartRoll;
+        private bool _xWingWasShocking;
+        private float _xWingCenterStartTime;
+        private float _xWingCenterStartX;
+        private float _xWingCenterStartY;
+        private float _xWingCenterStartRoll;
+        private bool _deathStarWarpActive;
+        private float _deathStarWarpStartTime;
+        private float _deathStarWarpTravelDuration;
+        private Vector3 _deathStarWarpStartPosition;
+        private Vector3 _deathStarWarpTargetPosition;
         private long _frameNumber;
 
         internal StarCruisingFrameDiagnostics? LastFrameDiagnostics { get; private set; }
@@ -147,6 +158,13 @@ namespace OscVisualizer.Services
             _xWing.RotationYDeg = 90f;
             _xWing.RotationXDeg = 90f;
             _bodyRenderer.AddInstance(_xWing);
+
+            _deathStar = CreateBodyModel(@"Assets\DeathStar.stl", 1.0f);
+            _deathStar.Visible = false;
+            _deathStar.RotationYDeg = 60f;
+            _deathStar.RotationXDeg = 90f;
+            _deathStar.RotationZDeg = 180f;
+            _bodyRenderer.AddInstance(_deathStar);
         }
 
         // ============================================================
@@ -314,6 +332,7 @@ namespace OscVisualizer.Services
             UpdateApproachingBodies(time, deltaTime, kick, hat);
             UpdateXWing(time);
             HiddenLineFrameDiagnostics hiddenLineDiagnostics = DrawApproachingBodies(segments);
+            ProcessShockwave(segments, deltaTime);
             RecordFrameDiagnostics(starSegmentCount, segments.Count / 2, frameStartTimestamp, hiddenLineDiagnostics);
 
             return segments;
@@ -321,9 +340,22 @@ namespace OscVisualizer.Services
 
         private void UpdateXWing(float time)
         {
-            if (_isHyperspace)
+            bool shockActive = shock != null;
+            bool jitterMode = _isHyperspace || shockActive;
+
+            if (!shockActive && _xWingWasShocking && !_isHyperspace && !_deathStarWarpActive)
             {
-                float transition = Math.Clamp((time - _warpStartTime) / WarpFadeDuration, 0f, 1f);
+                _xWingRecovering = true;
+                _xWingRecoverStartTime = time;
+                _xWingRecoverStartPosition = _xWing.Translation;
+                _xWingRecoverStartRoll = _xWing.RotationZDeg;
+            }
+
+            if (jitterMode)
+            {
+                float transition = _isHyperspace
+                    ? Math.Clamp((time - _warpStartTime) / WarpFadeDuration, 0f, 1f)
+                    : 1f;
 
                 if (time >= _nextXWingJitterTime)
                 {
@@ -333,11 +365,29 @@ namespace OscVisualizer.Services
                     _nextXWingJitterTime = time + 0.08f;
                 }
 
+                float baseX = _isHyperspace
+                    ? _xWingWarpStartX * (1f - transition)
+                    : 0f;
+                float baseY = _isHyperspace
+                    ? _xWingWarpY
+                    : _xWingCenterStartY;
+
                 _xWing.Translation = new Vector3(
-                    _xWingWarpStartX * (1f - transition) + _xWingJitterOffset.X * transition,
-                    _xWingWarpY + _xWingJitterOffset.Y * transition,
+                    baseX + _xWingJitterOffset.X * transition,
+                    baseY + _xWingJitterOffset.Y * transition,
                     8f);
                 _xWing.RotationZDeg = _xWingJitterOffset.X * 20f;
+                _xWingRecovering = false;
+            }
+            else if (_deathStarWarpActive)
+            {
+                float transition = Math.Clamp((time - _xWingCenterStartTime) / WarpFadeDuration, 0f, 1f);
+                _xWing.Translation = new Vector3(
+                    _xWingCenterStartX * (1f - transition),
+                    _xWingCenterStartY,
+                    8f);
+                _xWing.RotationZDeg = _xWingCenterStartRoll * (1f - transition);
+                _xWingRecovering = false;
             }
             else
             {
@@ -363,36 +413,74 @@ namespace OscVisualizer.Services
                 }
             }
 
+            _xWingWasShocking = shockActive;
             _xWing.RotationYDeg = -90f;
             _xWing.Visible = true;
         }
 
         private void UpdateHyperspace(float time)
         {
-            if (!_isHyperspace && time >= _nextWarpTime)
+            if (_deathStarWarpActive)
             {
-                _isHyperspace = true;
-                _warpStartTime = time;
-                _warpDuration = 5f + _random.NextSingle() * 5f;
-                _warpEndTime = time + _warpDuration;
-                _xWingWarpStartX = MathF.Sin(time * 0.7f) * 1.8f;
-                _xWingWarpY = -1.8f;
-                _nextXWingJitterTime = time + WarpFadeDuration;
-                _xWingJitterOffset = Vector2.Zero;
-                _approachingBodies.Clear();
-                TrySpawnApproachingBody(isWarpDestination: true);
+                UpdateDeathStarWarp(time);
                 return;
             }
 
-            if (_isHyperspace && time >= _warpEndTime)
+            if (_isHyperspace)
             {
-                _isHyperspace = false;
-                _nextWarpTime = time + 16f + _random.NextSingle() * 18f;
-                _xWingRecovering = true;
-                _xWingRecoverStartTime = time;
-                _xWingRecoverStartPosition = _xWing.Translation;
-                _xWingRecoverStartRoll = _xWing.RotationZDeg;
+                if (time >= _warpEndTime)
+                {
+                    _isHyperspace = false;
+                    _nextWarpTime = time + 16f + _random.NextSingle() * 18f;
+                    _xWingRecovering = true;
+                    _xWingRecoverStartTime = time;
+                    _xWingRecoverStartPosition = _xWing.Translation;
+                    _xWingRecoverStartRoll = _xWing.RotationZDeg;
+                }
+                return;
             }
+
+            if (shock != null)
+                return;
+
+            if (time < _nextWarpTime)
+                return;
+
+            StartHyperspaceSequence(time);
+        }
+
+        private void StartHyperspaceSequence(float time)
+        {
+            _isHyperspace = true;
+            _warpStartTime = time;
+            _warpDuration = 5f + _random.NextSingle() * 5f;
+            _warpEndTime = time + _warpDuration;
+            _xWingWarpStartX = MathF.Sin(time * 0.7f) * 1.8f;
+            _xWingWarpY = -1.8f;
+            _nextXWingJitterTime = time + WarpFadeDuration;
+            _xWingJitterOffset = Vector2.Zero;
+            _approachingBodies.Clear();
+            _deathStar.Visible = false;
+            _deathStarWarpActive = false;
+        }
+
+        private void StartDeathStarApproach(float time)
+        {
+            _isHyperspace = false;
+            _approachingBodies.Clear();
+            _deathStarWarpActive = true;
+            _deathStarWarpStartTime = time;
+            _deathStarWarpTravelDuration = 4.2f + _random.NextSingle() * 2.2f;
+            _deathStarWarpStartPosition = new Vector3(9.0f, -2.2f, 68f);
+            _deathStarWarpTargetPosition = new Vector3(0f, -0.5f, 26f);
+            _deathStar.Scale = 14f;
+            _deathStar.Translation = _deathStarWarpStartPosition;
+            _deathStar.Visible = true;
+
+            _xWingCenterStartTime = time;
+            _xWingCenterStartX = _xWing.Translation.X;
+            _xWingCenterStartY = _xWing.Translation.Y;
+            _xWingCenterStartRoll = _xWing.RotationZDeg;
         }
 
         private float GetHyperspaceBlend(float time)
@@ -406,8 +494,35 @@ namespace OscVisualizer.Services
             return blend * blend * (3f - 2f * blend);
         }
 
+        private void UpdateDeathStarWarp(float time)
+        {
+            if (!_deathStarWarpActive)
+                return;
+
+            float t = Math.Clamp((time - _deathStarWarpStartTime) / _deathStarWarpTravelDuration, 0f, 1f);
+            float eased = t * t * (3f - 2f * t);
+
+            _deathStar.Translation = Vector3.Lerp(_deathStarWarpStartPosition, _deathStarWarpTargetPosition, eased);
+            _deathStar.Visible = true;
+
+            if (t >= 1f)
+            {
+                SpawnDeathStarExplosion();
+                _deathStar.Visible = false;
+                _deathStarWarpActive = false;
+                _nextWarpTime = time + 14f + _random.NextSingle() * 12f;
+            }
+        }
+
         private void UpdateApproachingBodies(float time, float deltaTime, float kick, float hat)
         {
+            if (_deathStarWarpActive || shock != null)
+            {
+                if (_approachingBodies.Count > 0)
+                    _approachingBodies.Clear();
+                return;
+            }
+
             for (int i = _approachingBodies.Count - 1; i >= 0; i--)
             {
                 ApproachingBody body = _approachingBodies[i];
@@ -424,9 +539,17 @@ namespace OscVisualizer.Services
                 _approachingBodies[i] = body;
             }
 
-            if (!_isHyperspace && time >= _nextBodySpawnTime && _approachingBodies.Count < MaxCelestialBodies)
+            if (!_isHyperspace && time >= _nextBodySpawnTime)
             {
-                TrySpawnApproachingBody();
+                if (_approachingBodies.Count == 0 && _random.NextSingle() < 0.2f)
+                {
+                    StartDeathStarApproach(time);
+                }
+                else if (_approachingBodies.Count < MaxCelestialBodies)
+                {
+                    TrySpawnApproachingBody();
+                }
+
                 _nextBodySpawnTime = time + 4f + _random.NextSingle() * 5f;
             }
         }
@@ -513,7 +636,7 @@ namespace OscVisualizer.Services
             foreach (SceneMeshInstance model in _bodyModels)
                 model.Visible = false;
 
-            if (!_isHyperspace)
+            if (!_isHyperspace && !_deathStarWarpActive && shock == null)
             {
                 foreach (ApproachingBody body in _approachingBodies)
                 {
@@ -527,7 +650,9 @@ namespace OscVisualizer.Services
                 }
             }
 
-            if (_approachingBodies.Count == 0 && !_xWing.Visible)
+            _deathStar.Visible = _deathStarWarpActive;
+
+            if (_approachingBodies.Count == 0 && !_xWing.Visible && !_deathStarWarpActive)
                 return default;
 
             long renderStartTimestamp = Stopwatch.GetTimestamp();
@@ -669,7 +794,8 @@ namespace OscVisualizer.Services
         {
             StlModel model = StlLoader.Load(path);
             model.NormalizeToUnitCube();
-            IndexedMesh mesh = MeshBuilder.BuildIndexedMesh(model, vertexMergeEpsilon: 5e-5f);
+            //IndexedMesh mesh = MeshBuilder.BuildIndexedMesh(model, vertexMergeEpsilon: 5e-5f);
+            IndexedMesh mesh = MeshBuilder.BuildIndexedMesh(model, vertexMergeEpsilon: 2.5e-3f);
 
             if (minimumEdgeLength <= 0f)
             {
@@ -721,5 +847,163 @@ namespace OscVisualizer.Services
             {
             }
         }
+
+        private Shockwave? shock;
+
+        //https://github.com/reactiveui/ReactiveUI.SourceGenerators
+
+        private void SpawnDeathStarExplosion()
+        {
+            // 爆発開始トリガ
+            shock = new Shockwave();
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="points"></param>
+        /// <param name="deltaTime"></param>
+        private void ProcessShockwave(List<XYPoint> points, double deltaTime)
+        {
+            if (shock == null)
+                return;
+
+            _deathStarWarpActive = false;
+            _deathStar.Visible = false;
+
+            var pts = shock.BuildPoints();
+            shock.Update(deltaTime);
+            switch (shock.Phase)
+            {
+                case 0:
+                    if (shock.Radius > 0.7)
+                    {
+                        shock.Radius = 0.1;
+                        shock.Phase++;
+                    }
+                    break;
+                case 1:
+                    if (shock.Radius > 0.9)
+                    {
+                        shock.Radius = 0.3;
+                        shock.Phase++;
+                    }
+                    break;
+                case 2:
+                    if (shock.Radius > 1.0)
+                    {
+                        shock.Radius = 0.0;
+                        shock.CoresOffset += 0.1;
+                        shock.Phase++;
+                    }
+                    break;
+
+                case 3:
+                    if (shock.Radius > 0.8)
+                    {
+                        shock.Radius = 0.2;
+                        shock.Phase++;
+                    }
+                    break;
+                case 4:
+                    if (shock.Radius > 1.0)
+                    {
+                        shock.Radius = 0.4;
+                        shock.Phase++;
+                    }
+                    break;
+                case 5:
+                    if (shock.Radius > 1.0)
+                    {
+                        shock.Radius = 0.1;
+
+                        shock.Rings *= 5;
+                        shock.RingSpace /= 2;
+                        shock.Speed = 0.15;
+
+                        shock.Cores = 0;
+                        //shock.CoresOffset += 0.1;
+                        shock.Phase++;
+                    }
+                    break;
+                case 6:
+                    if (shock.Radius > 0.5)
+                    {
+                        shock.Speed = 0.40;
+                        shock.Phase++;
+                    }
+                    break;
+                case 7:
+                    if (shock.Radius > 1.2)
+                    {
+                        shock = null;
+                        pts.Clear();
+                    }
+                    break;
+            }
+
+            points.AddRange(pts);
+        }
+
     }
+
+    public class Shockwave
+    {
+        public int Phase = 0;
+
+        public double Radius = 0.0;
+        public double Speed = 0.75 * 1.5;
+        public int Rings = 3;
+        public double RingSpace = 0.025;
+        public int Cores = 10;
+        public double CoresOffset = 0;
+
+        public void Update(double dt)
+        {
+            Radius += Speed * dt;
+        }
+
+        public List<XYPoint> BuildPoints()
+        {
+            //double alpha = Life / MaxLife; // 1 → 0
+
+            int segments = 24;
+            var pts = new List<XYPoint>();
+
+            //ショック
+            for (int i = 0; i < Rings; i++)
+                pts.AddRange(BuildCircle(CoresOffset + Radius + (RingSpace * (double)i), segments));
+
+            //コア
+            for (int i = 1; i <= Cores; i++)
+            {
+                pts.AddRange(BuildCircle(CoresOffset + 0.01 * i, segments));
+            }
+
+            return pts;
+        }
+
+
+        private List<XYPoint> BuildCircle(double radius, int segments)
+        {
+            var pts = new List<XYPoint>();
+
+            for (int i = 0; i < segments; i++)
+            {
+                double a0 = (double)(Math.PI * 2 * i / segments);
+                double a1 = (double)(Math.PI * 2 * (i + 1) / segments);
+
+                double x0 = radius * Math.Cos(a0);
+                double y0 = radius * Math.Sin(a0);
+                double x1 = radius * Math.Cos(a1);
+                double y1 = radius * Math.Sin(a1);
+
+                pts.Add(new XYPoint(x0, y0));
+                pts.Add(new XYPoint(x1, y1));
+            }
+
+            return pts;
+        }
+    }
+
 }
