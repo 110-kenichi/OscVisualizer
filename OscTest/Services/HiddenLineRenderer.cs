@@ -637,6 +637,8 @@ namespace OscVisualizer.Services
         public float RotationXDeg { get; set; } = 0f;
         public float RotationYDeg { get; set; } = 0f;
         public float RotationZDeg { get; set; } = 0f;
+        public float ArbitraryRotationAngleDeg { get; set; } = 0f;
+        public Vector3 ArbitraryRotationAxis { get; set; } = Vector3.Zero;
 
         public float Scale { get; set; } = 1f;
         public Vector3 Translation { get; set; } = Vector3.Zero;
@@ -697,10 +699,18 @@ namespace OscVisualizer.Services
             float ry = RotationYDeg * MathF.PI / 180f;
             float rz = RotationZDeg * MathF.PI / 180f;
 
-            Matrix4x4 rot =
+            Matrix4x4 eulerRot =
                 Matrix4x4.CreateRotationX(rx) *
                 Matrix4x4.CreateRotationY(ry) *
                 Matrix4x4.CreateRotationZ(rz);
+
+            Matrix4x4 rot = eulerRot;
+            if (ArbitraryRotationAxis.LengthSquared() > 1e-8f)
+            {
+                float arbitraryRadians = ArbitraryRotationAngleDeg * MathF.PI / 180f;
+                Matrix4x4 axisRot = Matrix4x4.CreateFromAxisAngle(Vector3.Normalize(ArbitraryRotationAxis), arbitraryRadians);
+                rot = axisRot * eulerRot;
+            }
 
             Vector3 center = GetRotationCenter();
 

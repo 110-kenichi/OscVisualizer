@@ -50,9 +50,11 @@ namespace OscVisualizer.Services
 
         private const int MaxCelestialBodies = 2;
         private const float BodySpawnZ = 96f;
-        private const float BodyDespawnZ = 20f;
+        private const float BodyDespawnZ = 12f;
         private const float BodyFadeInDistance = 20f;
         private const float WarpFadeDuration = 1.5f;
+        private const float DeathStarCooldownMin = 22f;
+        private const float DeathStarCooldownMax = 34f;
         private const int DiagnosticLogIntervalFrames = 60;
 
         // ============================================================
@@ -102,6 +104,7 @@ namespace OscVisualizer.Services
         private float _deathStarWarpTravelDuration;
         private Vector3 _deathStarWarpStartPosition;
         private Vector3 _deathStarWarpTargetPosition;
+        private float _nextDeathStarTime = 24f;
         private long _frameNumber;
 
         internal StarCruisingFrameDiagnostics? LastFrameDiagnostics { get; private set; }
@@ -433,7 +436,7 @@ namespace OscVisualizer.Services
                 if (time >= _warpEndTime)
                 {
                     _isHyperspace = false;
-                    _nextWarpTime = time + 16f + _random.NextSingle() * 18f;
+                    _nextWarpTime = time + 16f + _random.NextSingle() * 18f * 2;
                     _xWingRecovering = true;
                     _xWingRecoverStartTime = time;
                     _xWingRecoverStartPosition = _xWing.Translation;
@@ -478,6 +481,7 @@ namespace OscVisualizer.Services
             _deathStar.Scale = 14f;
             _deathStar.Translation = _deathStarWarpStartPosition;
             _deathStar.Visible = true;
+            _nextDeathStarTime = time + DeathStarCooldownMin + _random.NextSingle() * (DeathStarCooldownMax - DeathStarCooldownMin);
 
             _xWingCenterStartTime = time;
             // 直前フレームの X-Wing 位置を基準にするが、初期値が不正(0)になるケースがあるため
@@ -533,7 +537,7 @@ namespace OscVisualizer.Services
             {
                 ApproachingBody body = _approachingBodies[i];
                 body.Position -= Vector3.UnitZ * (body.Speed + kick * 0.08f + hat * 0.12f) * deltaTime;
-                body.Rotation = (body.Rotation + body.SpinSpeed * deltaTime) % 360f;
+                body.Rotation += body.SpinSpeed * deltaTime;
 
                 Vector2 screenPosition = new(body.Position.X / body.Position.Z, body.Position.Y / body.Position.Z);
                 if (body.Position.Z < BodyDespawnZ || !IsOnScreen(screenPosition))
@@ -547,7 +551,7 @@ namespace OscVisualizer.Services
 
             if (!_isHyperspace && time >= _nextBodySpawnTime)
             {
-                if (_approachingBodies.Count == 0 && _random.NextSingle() < 0.2f)
+                if (_approachingBodies.Count == 0 && time >= _nextDeathStarTime && _random.NextSingle() < 0.2f)
                 {
                     StartDeathStarApproach(time);
                 }
@@ -562,8 +566,8 @@ namespace OscVisualizer.Services
 
         private void TrySpawnApproachingBody(bool isWarpDestination = false)
         {
-            const float centerExclusionRadius = 0.08f;
-            const float minimumBodyDistance = 0.28f;
+            const float centerExclusionRadius = 0.05f;
+            const float minimumBodyDistance = 0.24f;
 
             Span<int> availableModels = stackalloc int[_bodyModels.Length];
             int availableCount = 0;
@@ -591,9 +595,7 @@ namespace OscVisualizer.Services
             {
                 Vector2 screenOffset = isWarpDestination
                     ? CreateWarpDestinationOffset()
-                    : new Vector2(
-                        _random.NextSingle() * 1.1f - 0.55f,
-                        _random.NextSingle() * 0.9f - 0.45f);
+                    : CreateFlyByOffset();
 
                 if (screenOffset.Length() < centerExclusionRadius)
                     continue;
@@ -615,19 +617,34 @@ namespace OscVisualizer.Services
                 if (intersectsExistingBody)
                     continue;
 
+                Vector3 rotationAxis = Vector3.Normalize(new Vector3(
+                    _random.NextSingle() * 2f - 1f,
+                    _random.NextSingle() * 2f - 1f,
+                    _random.NextSingle() * 2f - 1f));
+
                 _approachingBodies.Add(new ApproachingBody
                 {
                     ModelIndex = availableModels[_random.Next(availableCount)],
                     Position = new Vector3(screenOffset.X * BodySpawnZ, screenOffset.Y * BodySpawnZ, BodySpawnZ),
-                    Scale = (1.2f + _random.NextSingle() * 1.2f) * 4f,
+                    Scale = 18f + _random.NextSingle() * 6f,
                     Speed = isWarpDestination
                         ? (BodySpawnZ - BodyDespawnZ) / MathF.Max(_warpDuration * 0.9f, 1f)
                         : 2.2f + _random.NextSingle() * 1.6f,
                     SpinSpeed = 20f + _random.NextSingle() * 35f,
-                    Rotation = _random.NextSingle() * 360f
+                    Rotation = _random.NextSingle() * 360f,
+                    RotationAxis = rotationAxis
                 });
                 return;
             }
+        }
+
+        private Vector2 CreateFlyByOffset()
+        {
+            float horizontalSign = _random.NextSingle() < 0.5f ? -1f : 1f;
+            float verticalSign = _random.NextSingle() < 0.5f ? -1f : 1f;
+            float x = horizontalSign * (0.08f + _random.NextSingle() * 0.22f);
+            float y = verticalSign * (_random.NextSingle() * 0.22f);
+            return new Vector2(x, y);
         }
 
         private Vector2 CreateWarpDestinationOffset()
@@ -650,9 +667,11 @@ namespace OscVisualizer.Services
                     model.Visible = true;
                     model.Translation = body.Position;
                     model.Scale = body.Scale;
-                    model.RotationXDeg = body.Rotation * 0.35f;
-                    model.RotationYDeg = body.Rotation;
-                    model.RotationZDeg = body.Rotation * 0.2f;
+                    model.RotationXDeg = 0f;
+                    model.RotationYDeg = 0f;
+                    model.RotationZDeg = 0f;
+                    model.ArbitraryRotationAxis = body.RotationAxis;
+                    model.ArbitraryRotationAngleDeg = body.Rotation;
                 }
             }
 
@@ -834,6 +853,7 @@ namespace OscVisualizer.Services
             public required float Scale { get; init; }
             public required float Speed { get; init; }
             public required float SpinSpeed { get; init; }
+            public required Vector3 RotationAxis { get; init; }
             public float Rotation { get; set; }
         }
 
