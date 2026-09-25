@@ -77,7 +77,8 @@ namespace OscVisualizer.Services
         private readonly SceneMeshInstance _deathStar;
         private readonly DisplayDevice _bodyDisplay = new();
         private readonly List<ApproachingBody> _approachingBodies = new(MaxCelestialBodies);
-        private float _nextBodySpawnTime = 3f;
+        // 初期起動直後にデススターがすぐ表示されないよう、十分な遅延を与える
+        private float _nextBodySpawnTime = 18f;
         private bool _isHyperspace;
         private float _warpStartTime;
         private float _warpEndTime;
@@ -157,6 +158,7 @@ namespace OscVisualizer.Services
             _xWing = CreateBodyModel(@"Assets\x-wing.stl", 2.4f, minimumEdgeLength: 0.035f);
             _xWing.RotationYDeg = 90f;
             _xWing.RotationXDeg = 90f;
+            _xWing.Translation = new Vector3(0f, -1.8f, 8f);
             _bodyRenderer.AddInstance(_xWing);
 
             _deathStar = CreateBodyModel(@"Assets\DeathStar.stl", 1.0f);
@@ -478,8 +480,12 @@ namespace OscVisualizer.Services
             _deathStar.Visible = true;
 
             _xWingCenterStartTime = time;
+            // 直前フレームの X-Wing 位置を基準にするが、初期値が不正(0)になるケースがあるため
+            // 妥当なデフォルト値でフォールバックする
             _xWingCenterStartX = _xWing.Translation.X;
             _xWingCenterStartY = _xWing.Translation.Y;
+            if (MathF.Abs(_xWingCenterStartY) < 1e-4f)
+                _xWingCenterStartY = -1.8f;
             _xWingCenterStartRoll = _xWing.RotationZDeg;
         }
 
@@ -876,21 +882,21 @@ namespace OscVisualizer.Services
             switch (shock.Phase)
             {
                 case 0:
-                    if (shock.Radius > 0.7)
+                    if (shock.Radius > 0.6)
                     {
                         shock.Radius = 0.1;
                         shock.Phase++;
                     }
                     break;
                 case 1:
-                    if (shock.Radius > 0.9)
+                    if (shock.Radius > 0.8)
                     {
                         shock.Radius = 0.3;
                         shock.Phase++;
                     }
                     break;
                 case 2:
-                    if (shock.Radius > 1.0)
+                    if (shock.Radius > 1.2)
                     {
                         shock.Radius = 0.0;
                         shock.CoresOffset += 0.1;
@@ -906,7 +912,7 @@ namespace OscVisualizer.Services
                     }
                     break;
                 case 4:
-                    if (shock.Radius > 1.0)
+                    if (shock.Radius > 1.2)
                     {
                         shock.Radius = 0.4;
                         shock.Phase++;
@@ -919,7 +925,7 @@ namespace OscVisualizer.Services
 
                         shock.Rings *= 5;
                         shock.RingSpace /= 2;
-                        shock.Speed = 0.15;
+                        shock.Speed = 0.30;
 
                         shock.Cores = 0;
                         //shock.CoresOffset += 0.1;
@@ -929,7 +935,7 @@ namespace OscVisualizer.Services
                 case 6:
                     if (shock.Radius > 0.5)
                     {
-                        shock.Speed = 0.40;
+                        shock.Speed = 0.80;
                         shock.Phase++;
                     }
                     break;
@@ -952,9 +958,9 @@ namespace OscVisualizer.Services
         public int Phase = 0;
 
         public double Radius = 0.0;
-        public double Speed = 0.75 * 1.5;
-        public int Rings = 3;
-        public double RingSpace = 0.025;
+        public double Speed = 0.75 * 2;
+        public int Rings = 4;
+        public double RingSpace = 0.035;
         public int Cores = 10;
         public double CoresOffset = 0;
 
@@ -972,7 +978,12 @@ namespace OscVisualizer.Services
 
             //ショック
             for (int i = 0; i < Rings; i++)
-                pts.AddRange(BuildCircle(CoresOffset + Radius + (RingSpace * (double)i), segments));
+            {
+                var r = CoresOffset + Radius + (RingSpace * (double)i);
+                if (r > 0.5)
+                    r += (RingSpace * (double)i) / 2;
+                pts.AddRange(BuildCircle(r, segments));
+            }
 
             //コア
             for (int i = 1; i <= Cores; i++)
